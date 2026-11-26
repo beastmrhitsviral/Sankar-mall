@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'motion/react';
-import { Camera, Home, LayoutGrid, PackageCheck, ShoppingBag, Sparkles, X } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
+import {
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useMotionValueEvent,
+  useSpring,
+  useTransform,
+} from 'motion/react';
+import { Camera, Home, LayoutGrid, Search, Sparkles, X } from 'lucide-react';
 import { SECTIONS } from '../lib/catalog';
 import { AnimatedLink } from './AnimatedLink';
 import { ResilientImage } from './ResilientImage';
@@ -20,9 +26,60 @@ function isTextInputFocused(): boolean {
 }
 
 export function MobilePillDock() {
-  const { bagSummary, setBagDrawerOpen } = useStore();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const [isBigDockOpen, setBigDockOpen] = useState(false);
+  const [isScrollHidden, setIsScrollHidden] = useState(false);
+
+  // Continuous GPU-composited scroll progress: 0 = visible, 1 = smoothly tucked away
+  const hideProgress = useMotionValue(0);
+  const smoothHide = useSpring(hideProgress, { stiffness: 220, damping: 30, mass: 0.7 });
+  const dockScrollY = useTransform(smoothHide, [0, 1], [0, 88]);
+  const dockScrollOpacity = useTransform(smoothHide, [0, 0.85, 1], [1, 0.15, 0]);
+  const dockScrollScale = useTransform(smoothHide, [0, 1], [1, 0.92]);
+
+  useMotionValueEvent(smoothHide, 'change', (latest) => {
+    const hidden = latest > 0.85;
+    setIsScrollHidden((prev) => (prev === hidden ? prev : hidden));
+  });
+
+  // Reset dock visibility on route navigation
+  const lastScrollYRef = useRef<number>(
+    typeof window !== 'undefined' ? Math.max(0, window.scrollY) : 0
+  );
+  useEffect(() => {
+    lastScrollYRef.current = Math.max(0, window.scrollY);
+    hideProgress.set(0);
+    setIsScrollHidden(false);
+  }, [pathname, search, hideProgress]);
+
+  // Slowly hide on scroll down and slowly bring back on scroll up across every page
+  useEffect(() => {
+    const onScroll = () => {
+      if (isBigDockOpen) {
+        hideProgress.set(0);
+        lastScrollYRef.current = Math.max(0, window.scrollY);
+        return;
+      }
+
+      const currentY = Math.max(0, window.scrollY);
+      const delta = currentY - lastScrollYRef.current;
+      lastScrollYRef.current = currentY;
+
+      if (currentY <= 16) {
+        hideProgress.set(0);
+        return;
+      }
+
+      if (delta > 0) {
+        hideProgress.set(Math.min(1, hideProgress.get() + delta / 140));
+      } else if (delta < 0) {
+        hideProgress.set(Math.max(0, hideProgress.get() + delta / 110));
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [hideProgress, isBigDockOpen]);
 
   // Lock dock at its resting screen position when soft keyboard opens or overlays appear
   const baseViewportHeightRef = useRef<number>(
@@ -74,6 +131,7 @@ export function MobilePillDock() {
   }, []);
 
   const closeBigDock = () => setBigDockOpen(false);
+  const isSearchActive = pathname === '/search' || pathname === '/search-results';
 
   return (
     <div className="md:hidden">
@@ -185,17 +243,25 @@ export function MobilePillDock() {
           )}
         </AnimatePresence>
 
-        {/* Bottom Dock — Always stays in place */}
-        <nav
+        {/* Bottom Dock — Slowly hides on scroll down and slowly reappears on scroll up */}
+        <motion.nav
           aria-label="Mobile quick navigation"
-          className="pointer-events-auto"
+          aria-hidden={isScrollHidden}
+          style={{
+            y: dockScrollY,
+            opacity: dockScrollOpacity,
+            scale: dockScrollScale,
+          }}
+          className={`will-change-transform ${
+            isScrollHidden ? 'pointer-events-none' : 'pointer-events-auto'
+          }`}
         >
-          <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-slate-900/35 backdrop-blur-lg text-white shadow-[0_12px_40px_rgba(15,23,42,0.28)] border border-white/35 ring-1 ring-inset ring-white/20">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/35 backdrop-blur-lg text-white shadow-[0_12px_40px_rgba(15,23,42,0.28)] border border-white/35 ring-1 ring-inset ring-white/20">
             <AnimatedLink
               to="/"
               onBeforeNavigate={closeBigDock}
               aria-label="Home"
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
                 pathname === '/' && !isBigDockOpen
                   ? 'bg-white/25 text-amber-300 border border-white/25'
                   : 'text-white/95 hover:bg-white/15'
@@ -212,7 +278,7 @@ export function MobilePillDock() {
               onClick={() => setBigDockOpen((prev) => !prev)}
               aria-label="Store Sections"
               aria-expanded={isBigDockOpen}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
                 isBigDockOpen
                   ? 'bg-white/25 text-amber-300 border border-white/30'
                   : 'text-white/95 hover:bg-white/15'
@@ -223,35 +289,20 @@ export function MobilePillDock() {
             </motion.button>
 
             <AnimatedLink
-              to="/track-order"
+              to="/search"
               onBeforeNavigate={closeBigDock}
-              aria-label="Track Order"
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
-                pathname === '/track-order'
+              aria-label="Search"
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
+                isSearchActive && !isBigDockOpen
                   ? 'bg-white/25 text-amber-300 border border-white/25'
                   : 'text-white/95 hover:bg-white/15'
               }`}
             >
-              <PackageCheck className="w-4 h-4" />
-              <span>Track</span>
+              <Search className="w-4 h-4" />
+              <span>Search</span>
             </AnimatedLink>
-
-            <motion.button
-              type="button"
-              data-motion-tap
-              whileTap={{ scale: 0.9 }}
-              onClick={() => {
-                closeBigDock();
-                setBagDrawerOpen(true);
-              }}
-              aria-label={`Open Bag (${bagSummary.itemCount})`}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold bg-[#1E3A8A]/85 hover:bg-[#1E3A8A] border border-white/25 text-white whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span className="font-mono tabular-nums">{bagSummary.itemCount}</span>
-            </motion.button>
           </div>
-        </nav>
+        </motion.nav>
       </div>
     </div>
   );

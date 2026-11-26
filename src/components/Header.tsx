@@ -1,13 +1,9 @@
-import { useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'motion/react';
-import { Menu, PackageCheck, Search, ShoppingBag } from 'lucide-react';
+import { Menu, PackageCheck, ShoppingBag } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { AnimatedLink } from './AnimatedLink';
 
 export function Header() {
   const { bagSummary, setSectionsDrawerOpen, setBagDrawerOpen } = useStore();
-  const { pathname } = useLocation();
-  const isSearchPage = pathname === '/search';
 
   return (
     <header className="sticky top-0 z-40 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
@@ -32,43 +28,16 @@ export function Header() {
           </AnimatedLink>
         </div>
 
-        {/* Center: Half-Size Search Trigger Button (Shrinks & shifts down then disappears on /search) */}
-        <div className="flex-1 flex justify-center min-w-0">
-          <AnimatePresence>
-            {!isSearchPage && (
-              <motion.div
-                key="header-search-trigger"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.72, y: 18 }}
-                whileTap={{ scale: 0.84 }}
-                transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <AnimatedLink
-                  to="/search"
-                  data-motion-tap
-                  delayMs={45}
-                  aria-label="Search"
-                  className="w-32 sm:w-52 h-9 sm:h-10 px-3.5 rounded-full bg-slate-100/90 hover:bg-slate-200/80 border border-slate-200/70 inline-flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap shrink-0"
-                >
-                  <Search className="w-4 h-4 text-slate-500 shrink-0" />
-                  <span>Search</span>
-                </AnimatedLink>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Right: Track Icon + Bag Drawer Trigger */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        {/* Right: Track (always labeled "Track") + Bag Drawer Trigger */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <AnimatedLink
             to="/track-order"
             aria-label="Track Booking Status"
             title="Track Booking Status"
-            className="h-9 sm:h-10 px-2 sm:px-3 inline-flex items-center gap-1.5 rounded-lg text-slate-700 hover:text-[#1E3A8A] hover:bg-slate-100 transition-colors whitespace-nowrap shrink-0"
+            className="h-9 sm:h-10 px-2.5 sm:px-3 inline-flex items-center gap-1.5 rounded-lg text-slate-700 hover:text-[#1E3A8A] hover:bg-slate-100 transition-colors whitespace-nowrap shrink-0"
           >
             <PackageCheck className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-            <span className="hidden lg:inline text-xs font-medium">Track</span>
+            <span className="text-xs font-semibold">Track</span>
           </AnimatedLink>
 
           <button

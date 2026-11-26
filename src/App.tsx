@@ -14,6 +14,7 @@ import { CategoryPage } from './pages/CategoryPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
 import { SearchPage } from './pages/SearchPage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
+import { SectionsOverviewPage } from './pages/SectionsOverviewPage';
 
 const QuickListPage = lazy(() =>
   import('./pages/QuickListPage').then((m) => ({ default: m.QuickListPage }))
@@ -74,6 +75,7 @@ function AnimatedRoutesShell() {
       <Suspense fallback={<RouteFallback />}>
         <Routes location={location}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/sections" element={<SectionsOverviewPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/search-results" element={<SearchResultsPage />} />
           <Route path="/category/:slug" element={<CategoryPage />} />

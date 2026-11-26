@@ -584,10 +584,12 @@ export function findBookingsByQuery(
   const qClean = q.replace(/^#/, '');
   const qDigits = normalizeIndianPhone(q);
 
+  const isPassIdQuery = qClean.startsWith('sm-');
+
   return bookings.filter((b) => {
     const idMatch =
       b.id.toLowerCase() === q || b.id.toLowerCase().replace(/^#/, '') === qClean;
-    const phoneMatch = qDigits.length >= 4 && b.phone.includes(qDigits);
+    const phoneMatch = !isPassIdQuery && qDigits.length >= 4 && b.phone.includes(qDigits);
     return idMatch || phoneMatch;
   });
 }

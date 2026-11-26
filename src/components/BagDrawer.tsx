@@ -149,7 +149,7 @@ export function BagDrawer() {
                     <button
                       type="button"
                       onClick={() => {
-                        animatedNavigate('/category/all', { onBeforeNavigate: closeDrawer });
+                        animatedNavigate('/sections', { onBeforeNavigate: closeDrawer });
                       }}
                       className="w-full py-2.5 px-4 rounded-lg bg-[#1E3A8A] text-white text-sm font-semibold hover:bg-[#172E6E] cursor-pointer"
                     >

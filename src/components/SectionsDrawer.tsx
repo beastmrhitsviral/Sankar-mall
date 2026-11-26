@@ -78,6 +78,13 @@ export function SectionsDrawer() {
 
               <div className="pt-3 space-y-2">
                 <AnimatedLink
+                  to="/search"
+                  onBeforeNavigate={close}
+                  className="block w-full px-5 py-3 rounded-full bg-[#1E3A8A] text-white text-sm font-semibold hover:bg-[#172E6E] transition-colors text-center"
+                >
+                  Search Products
+                </AnimatedLink>
+                <AnimatedLink
                   to="/quick-list"
                   onBeforeNavigate={close}
                   className="block w-full px-5 py-3 rounded-full bg-amber-100/90 border border-amber-300/70 text-slate-900 text-sm font-semibold hover:bg-amber-200/80 transition-colors text-center"
