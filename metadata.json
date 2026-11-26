@@ -1,0 +1,6 @@
+{
+  "name": "Shankar Mall — Dhanbad Click & Collect",
+  "description": "Online pre-booking, handwritten shopping list upload, and express store pickup for Shankar Mall in Hirapur and Rangatand, Dhanbad.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
