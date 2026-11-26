@@ -55,27 +55,33 @@ export function HomePage() {
   }, [products]);
 
   return (
-    <div className="space-y-16 sm:space-y-20 pb-20">
-      {/* 1. Centered Hero Parallax Banner */}
+    <div className="space-y-12 sm:space-y-16 pb-20">
+      {/* 1. Centered Hero Parallax Banner — shaded seamlessly into white with no hard bottom border */}
       <section
         ref={heroRef}
         className="relative overflow-hidden bg-slate-950 text-white"
       >
         <motion.div
           style={{ y: heroY }}
-          className="absolute inset-0 pointer-events-none will-change-transform"
+          className="absolute inset-x-0 -top-6 -bottom-14 pointer-events-none will-change-transform"
         >
           <ResilientImage
             src={HERO_IMAGE}
             alt="Shankar Mall Dhanbad interior aisles"
             loading="eager"
             fetchPriority="high"
-            className="w-full h-full object-cover opacity-50"
+            className="w-full h-full object-cover opacity-55"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/65 to-slate-950/85" />
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/60 to-slate-950/40" />
         </motion.div>
 
-        <div className="relative max-w-[1280px] mx-auto px-4 sm:px-6 py-16 sm:py-24 lg:py-28">
+        {/* Bottom atmospheric shade feathering smoothly into page white without any line */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-28 sm:h-36 bg-gradient-to-b from-transparent via-white/65 to-white"
+        />
+
+        <div className="relative max-w-[1280px] mx-auto px-4 sm:px-6 pt-16 sm:pt-24 lg:pt-28 pb-28 sm:pb-36">
           <div className="max-w-3xl mx-auto text-center flex flex-col items-center space-y-6">
             <p className="text-xs sm:text-sm font-medium text-amber-300 tracking-wide">
               {siteSettings.announcementBanner}

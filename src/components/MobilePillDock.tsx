@@ -77,7 +77,7 @@ export function MobilePillDock() {
 
   return (
     <div className="md:hidden">
-      {/* Backdrop blur scrim when Big Sections Dock is open */}
+      {/* Backdrop blur scrim when Sections Menu Box is open */}
       <AnimatePresence>
         {isBigDockOpen && (
           <motion.div
@@ -92,25 +92,27 @@ export function MobilePillDock() {
         )}
       </AnimatePresence>
 
-      {/* Collapsed Bottom Dock vs Expanded Big Blur Sections Dock */}
+      {/* Persistent Bottom Dock container — Sections Menu Box emerges right above the dock */}
       <div
         style={{ bottom: `${12 - keyboardOffsetPx}px` }}
-        className={`fixed inset-x-0 flex justify-center px-3 pointer-events-none ${
+        className={`fixed inset-x-0 flex flex-col items-center gap-3 px-3 pointer-events-none ${
           isBigDockOpen ? 'z-50' : 'z-30'
         }`}
       >
-        <AnimatePresence initial={false}>
-          {isBigDockOpen ? (
+        {/* Sections Menu Box emerging smoothly upward from the bottom dock */}
+        <AnimatePresence>
+          {isBigDockOpen && (
             <motion.section
-              key="big-sections-dock"
+              key="dock-sections-menu"
               aria-label="Store Sections Quick Dock"
-              initial={{ opacity: 0, y: 20, scale: 0.94 }}
+              style={{ transformOrigin: '50% 100%' }}
+              initial={{ opacity: 0, y: 16, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.95 }}
-              transition={{ type: 'spring', damping: 32, stiffness: 420, mass: 0.7 }}
-              className="pointer-events-auto w-full max-w-md rounded-[32px] bg-slate-900/55 backdrop-blur-xl border border-white/35 ring-1 ring-inset ring-white/20 shadow-[0_24px_64px_rgba(15,23,42,0.42)] p-4 text-white will-change-transform"
+              exit={{ opacity: 0, y: 14, scale: 0.92 }}
+              transition={{ type: 'spring', damping: 32, stiffness: 460, mass: 0.65 }}
+              className="pointer-events-auto w-full max-w-md rounded-[28px] bg-slate-900/60 backdrop-blur-xl border border-white/35 ring-1 ring-inset ring-white/20 shadow-[0_24px_64px_rgba(15,23,42,0.42)] p-4 text-white will-change-transform"
             >
-              {/* Header */}
+              {/* Menu Box Header */}
               <div className="flex items-center justify-between gap-3 px-1 pb-3 border-b border-white/20">
                 <div>
                   <p className="font-display text-base font-bold tracking-tight text-white drop-shadow-xs">
@@ -126,14 +128,14 @@ export function MobilePillDock() {
                   whileTap={{ scale: 0.88 }}
                   onClick={closeBigDock}
                   aria-label="Close big sections dock"
-                  className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 inline-flex items-center justify-center text-white transition-colors cursor-pointer shrink-0"
+                  className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 inline-flex items-center justify-center text-white transition-colors cursor-pointer shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </motion.button>
               </div>
 
-              {/* Smooth Oval Section Boxes (no redundant nested backdrop-filter passes) */}
-              <div className="py-3.5 flex flex-wrap items-center justify-center gap-2">
+              {/* Smooth Oval Section Boxes */}
+              <div className="pt-3.5 pb-1 flex flex-wrap items-center justify-center gap-2">
                 <AnimatedLink
                   to="/category/all"
                   onBeforeNavigate={closeBigDock}
@@ -169,108 +171,87 @@ export function MobilePillDock() {
                     </AnimatedLink>
                   );
                 })}
-              </div>
-
-              {/* Bottom Utility Ovals inside Big Dock */}
-              <div className="pt-2.5 border-t border-white/20 flex items-center justify-between gap-2">
-                <AnimatedLink
-                  to="/"
-                  onBeforeNavigate={closeBigDock}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 text-xs font-medium text-white whitespace-nowrap"
-                >
-                  <Home className="w-3.5 h-3.5" />
-                  <span>Home</span>
-                </AnimatedLink>
 
                 <AnimatedLink
                   to="/quick-list"
                   onBeforeNavigate={closeBigDock}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 text-xs font-medium text-white whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 border border-amber-300/50 bg-amber-400/20 hover:bg-amber-400/30 text-xs font-semibold text-amber-200 transition-colors whitespace-nowrap shrink-0"
                 >
                   <Camera className="w-3.5 h-3.5 text-amber-300" />
                   <span>Snap List</span>
                 </AnimatedLink>
-
-                <motion.button
-                  type="button"
-                  data-motion-tap
-                  whileTap={{ scale: 0.92 }}
-                  onClick={() => {
-                    closeBigDock();
-                    setBagDrawerOpen(true);
-                  }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full bg-[#1E3A8A]/90 hover:bg-[#1E3A8A] border border-white/30 text-xs font-semibold text-white whitespace-nowrap cursor-pointer"
-                >
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                  <span className="font-mono tabular-nums">{bagSummary.itemCount}</span>
-                </motion.button>
               </div>
             </motion.section>
-          ) : (
-            <motion.nav
-              key="compact-bottom-dock"
-              aria-label="Mobile quick navigation"
-              initial={{ opacity: 0, y: 12, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.96 }}
-              transition={{ type: 'spring', damping: 32, stiffness: 420, mass: 0.7 }}
-              className="pointer-events-auto will-change-transform"
-            >
-              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-slate-900/35 backdrop-blur-lg text-white shadow-[0_12px_40px_rgba(15,23,42,0.28)] border border-white/35 ring-1 ring-inset ring-white/20">
-                <AnimatedLink
-                  to="/"
-                  aria-label="Home"
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
-                    pathname === '/'
-                      ? 'bg-white/25 text-amber-300 border border-white/25'
-                      : 'text-white/95 hover:bg-white/15'
-                  }`}
-                >
-                  <Home className="w-4 h-4" />
-                  <span>Home</span>
-                </AnimatedLink>
-
-                <motion.button
-                  type="button"
-                  data-motion-tap
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setBigDockOpen(true)}
-                  aria-label="Store Sections"
-                  aria-expanded={isBigDockOpen}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-white/95 hover:bg-white/15 transition-colors whitespace-nowrap shrink-0 cursor-pointer drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)]"
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                  <span>Sections</span>
-                </motion.button>
-
-                <AnimatedLink
-                  to="/track-order"
-                  aria-label="Track Order"
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
-                    pathname === '/track-order'
-                      ? 'bg-white/25 text-amber-300 border border-white/25'
-                      : 'text-white/95 hover:bg-white/15'
-                  }`}
-                >
-                  <PackageCheck className="w-4 h-4" />
-                  <span>Track</span>
-                </AnimatedLink>
-
-                <motion.button
-                  type="button"
-                  data-motion-tap
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setBagDrawerOpen(true)}
-                  aria-label={`Open Bag (${bagSummary.itemCount})`}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold bg-[#1E3A8A]/85 hover:bg-[#1E3A8A] border border-white/25 text-white whitespace-nowrap shrink-0 cursor-pointer"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span className="font-mono tabular-nums">{bagSummary.itemCount}</span>
-                </motion.button>
-              </div>
-            </motion.nav>
           )}
         </AnimatePresence>
+
+        {/* Bottom Dock — Always stays in place */}
+        <nav
+          aria-label="Mobile quick navigation"
+          className="pointer-events-auto"
+        >
+          <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-slate-900/35 backdrop-blur-lg text-white shadow-[0_12px_40px_rgba(15,23,42,0.28)] border border-white/35 ring-1 ring-inset ring-white/20">
+            <AnimatedLink
+              to="/"
+              onBeforeNavigate={closeBigDock}
+              aria-label="Home"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
+                pathname === '/' && !isBigDockOpen
+                  ? 'bg-white/25 text-amber-300 border border-white/25'
+                  : 'text-white/95 hover:bg-white/15'
+              }`}
+            >
+              <Home className="w-4 h-4" />
+              <span>Home</span>
+            </AnimatedLink>
+
+            <motion.button
+              type="button"
+              data-motion-tap
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setBigDockOpen((prev) => !prev)}
+              aria-label="Store Sections"
+              aria-expanded={isBigDockOpen}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
+                isBigDockOpen
+                  ? 'bg-white/25 text-amber-300 border border-white/30'
+                  : 'text-white/95 hover:bg-white/15'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span>Sections</span>
+            </motion.button>
+
+            <AnimatedLink
+              to="/track-order"
+              onBeforeNavigate={closeBigDock}
+              aria-label="Track Order"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
+                pathname === '/track-order'
+                  ? 'bg-white/25 text-amber-300 border border-white/25'
+                  : 'text-white/95 hover:bg-white/15'
+              }`}
+            >
+              <PackageCheck className="w-4 h-4" />
+              <span>Track</span>
+            </AnimatedLink>
+
+            <motion.button
+              type="button"
+              data-motion-tap
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                closeBigDock();
+                setBagDrawerOpen(true);
+              }}
+              aria-label={`Open Bag (${bagSummary.itemCount})`}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold bg-[#1E3A8A]/85 hover:bg-[#1E3A8A] border border-white/25 text-white whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span className="font-mono tabular-nums">{bagSummary.itemCount}</span>
+            </motion.button>
+          </div>
+        </nav>
       </div>
     </div>
   );
