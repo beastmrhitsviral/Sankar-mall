@@ -1,12 +1,15 @@
+import { useLocation } from 'react-router-dom';
 import { MapPin, Phone } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { AnimatedLink } from './AnimatedLink';
 
 export function Footer() {
+  const { pathname } = useLocation();
   const { siteSettings, setPinModalOpen } = useStore();
+  const isHome = pathname === '/';
 
   return (
-    <footer className="border-t border-slate-200 bg-slate-50/70 pb-20 md:pb-0">
+    <footer className={`border-t border-slate-200 bg-slate-50/70 ${isHome ? 'pb-24 md:pb-0' : 'pb-2'}`}>
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-8 border-b border-slate-200">
           <div>

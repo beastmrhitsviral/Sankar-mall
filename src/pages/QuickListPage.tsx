@@ -7,6 +7,7 @@ import {
   validateBookingCustomerInput,
 } from '../lib/bookingStore';
 import { BranchName, PhotoListRequest, PickupSlot } from '../lib/types';
+import { compressImageFileToDataUrl } from '../lib/imageUpload';
 import { QrPassCard } from '../components/QrPassCard';
 
 const BRANCHES: BranchName[] = [
@@ -61,7 +62,7 @@ export function QuickListPage() {
   const [error, setError] = useState<string | null>(null);
   const [createdRequest, setCreatedRequest] = useState<PhotoListRequest | null>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -69,15 +70,14 @@ export function QuickListPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setPhotoDataUrl(reader.result);
-        setPhotoFileName(file.name);
-        setError(null);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const optimized = await compressImageFileToDataUrl(file, 1024, 0.82);
+      setPhotoDataUrl(optimized);
+      setPhotoFileName(file.name);
+      setError(null);
+    } catch {
+      setError('Could not read the selected image file.');
+    }
   };
 
   const handleAppendChip = (item: string) => {

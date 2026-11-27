@@ -18,11 +18,13 @@ import {
 } from '../lib/bookingStore';
 import { SECTIONS } from '../lib/catalog';
 import { BookingRecord, OrderStatus, SectionSlug } from '../lib/types';
+import { CloudPublishBanner } from '../components/CloudPublishBanner';
+import { ProductImageUploadBox } from '../components/ProductImageUploadBox';
 
 type AdminTab = 'all' | 'standard' | 'photo-list' | 'add-product';
 
 export function AdminPage() {
-  const { bookings, updateStatus, addProduct } = useStore();
+  const { bookings, updateStatus, addProduct, isCloudAdmin } = useStore();
 
   const [unlocked, setUnlocked] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -44,6 +46,8 @@ export function AdminPage() {
   const [prodUnit, setProdUnit] = useState('');
   const [prodAisle, setProdAisle] = useState('');
   const [prodDesc, setProdDesc] = useState('');
+  const [prodImageDataUrl, setProdImageDataUrl] = useState('');
+  const [prodImageFileName, setProdImageFileName] = useState('');
   const [prodSuccess, setProdSuccess] = useState<string | null>(null);
 
   const photoRequestsCount = useMemo(
@@ -102,7 +106,7 @@ export function AdminPage() {
       variants: [prodUnit.trim() || 'Standard Pack'],
       inStock: true,
       trending: true,
-      image: sectionMeta.image,
+      image: prodImageDataUrl || sectionMeta.image,
       description:
         prodDesc.trim() ||
         `${prodName.trim()} available for Click & Collect at Shankar Mall Dhanbad.`,
@@ -110,7 +114,11 @@ export function AdminPage() {
       highlights: ['Ready for 2-hour store pickup', 'Pay at Express Counter'],
     });
 
-    setProdSuccess(`Added "${created.name}" to ${sectionMeta.name}.`);
+    setProdSuccess(
+      isCloudAdmin
+        ? `Published "${created.name}" to ${sectionMeta.name} for all visitors.`
+        : `Saved "${created.name}" locally. Sign in with Google above to publish to all visitors.`
+    );
     setProdName('');
     setProdBrand('');
     setProdPrice('');
@@ -118,6 +126,8 @@ export function AdminPage() {
     setProdUnit('');
     setProdAisle('');
     setProdDesc('');
+    setProdImageDataUrl('');
+    setProdImageFileName('');
   };
 
   if (!unlocked) {
@@ -195,6 +205,8 @@ export function AdminPage() {
           <span>Lock Counter</span>
         </button>
       </div>
+
+      <CloudPublishBanner />
 
       {/* KPI Summary Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -389,6 +401,20 @@ export function AdminPage() {
                 onChange={(e) => setProdDesc(e.target.value)}
                 placeholder="Describe quality, pack details, or counter notes..."
                 className="w-full p-3 rounded-lg border border-slate-300 text-sm outline-none focus:border-[#1E3A8A]"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <ProductImageUploadBox
+                value={prodImageDataUrl}
+                fileName={prodImageFileName}
+                onChange={(dataUrl, fileName) => {
+                  setProdImageDataUrl(dataUrl);
+                  setProdImageFileName(fileName);
+                }}
+                fallbackPreviewSrc={
+                  (SECTIONS.find((s) => s.slug === prodSection) || SECTIONS[0]).image
+                }
               />
             </div>
 

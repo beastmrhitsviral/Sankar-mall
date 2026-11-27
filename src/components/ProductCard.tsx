@@ -10,11 +10,13 @@ interface ProductCardProps {
   product: Product;
   index?: number;
   compact?: boolean;
+  priority?: boolean;
 }
 
 export const ProductCard = memo(function ProductCard({
   product,
   compact = false,
+  priority = false,
 }: ProductCardProps) {
   const { addToBag } = useStore();
   const [justAdded, setJustAdded] = useState(false);
@@ -36,7 +38,7 @@ export const ProductCard = memo(function ProductCard({
     <article className="cv-auto group bg-white border border-slate-200/90 rounded-xl overflow-hidden transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col">
       <AnimatedLink
         to={`/product/${product.slug}`}
-        className={`block relative bg-slate-50 overflow-hidden ${
+        className={`block relative bg-slate-100 overflow-hidden ${
           compact ? 'h-28 sm:h-36' : 'aspect-[4/3]'
         }`}
       >
@@ -44,6 +46,8 @@ export const ProductCard = memo(function ProductCard({
           src={product.image}
           alt={product.name}
           fallbackTitle={product.name}
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
           className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03] ${
             !product.inStock ? 'opacity-65 grayscale-[25%]' : ''
           }`}

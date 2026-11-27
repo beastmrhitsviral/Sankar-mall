@@ -1,34 +1,61 @@
-import { Menu, PackageCheck, ShoppingBag } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
+import { Home, PackageCheck, ShoppingBag } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { AnimatedLink } from './AnimatedLink';
 
 export function Header() {
-  const { bagSummary, setSectionsDrawerOpen, setBagDrawerOpen } = useStore();
+  const { pathname } = useLocation();
+  const { bagSummary, setBagDrawerOpen } = useStore();
+  const isHome = pathname === '/';
 
   return (
-    <header className="sticky top-0 z-40 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
-      <div className="max-w-[1280px] mx-auto h-full px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-6">
-        {/* Left: Menu Drawer Trigger + Shankar Mall Logo */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={() => setSectionsDrawerOpen(true)}
-            aria-label="Open store sections directory"
-            className="w-9 h-9 sm:w-10 sm:h-10 inline-flex items-center justify-center rounded-lg text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-
-          <AnimatedLink
-            to="/"
-            className="font-display text-base sm:text-xl font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0 flex items-center gap-1"
-          >
-            <span className="text-[#1E3A8A]">Shankar</span>
-            <span>Mall</span>
-          </AnimatedLink>
+    <header className="sticky top-0 z-40 h-16 bg-white/92 backdrop-blur-md border-b border-slate-200/80">
+      <div className="max-w-[1280px] mx-auto h-full px-3.5 sm:px-6 flex items-center justify-between gap-2 sm:gap-6">
+        {/* Top-Left: Shankar Mall only on Homepage; animated Home oval bubble on every other page */}
+        <div className="flex items-center shrink-0 min-w-0">
+          <AnimatePresence mode="wait" initial={false}>
+            {isHome ? (
+              <motion.div
+                key="brand-shankar"
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -6 }}
+                transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <AnimatedLink
+                  to="/"
+                  className="font-display text-lg sm:text-xl font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0 flex items-center gap-1"
+                >
+                  <span className="text-[#1E3A8A]">Shankar</span>
+                  <span>Mall</span>
+                </AnimatedLink>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="home-oval-bubble"
+                initial={{ opacity: 0, scale: 0.88, x: -6 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.88, x: -6 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 28, mass: 0.65 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.88 }}
+                data-motion-tap
+              >
+                <AnimatedLink
+                  to="/"
+                  aria-label="Back to Home"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-100/95 hover:bg-blue-50 border border-slate-200/90 hover:border-[#1E3A8A]/30 text-slate-900 hover:text-[#1E3A8A] text-xs sm:text-sm font-semibold shadow-xs transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Home className="w-4 h-4 text-[#1E3A8A] shrink-0" />
+                  <span>Home</span>
+                </AnimatedLink>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* Right: Track (always labeled "Track") + Bag Drawer Trigger */}
+        {/* Top-Right: Track + Bag Drawer Trigger */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <AnimatedLink
             to="/track-order"

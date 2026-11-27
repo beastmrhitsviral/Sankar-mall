@@ -58,24 +58,20 @@ export function HomePage() {
           className="pointer-events-none absolute inset-x-0 bottom-0 h-28 sm:h-36 bg-gradient-to-b from-transparent via-white/65 to-white"
         />
 
-        <div className="relative max-w-[1280px] mx-auto px-4 sm:px-6 pt-14 sm:pt-20 lg:pt-24 pb-24 sm:pb-32">
-          <div className="max-w-3xl mx-auto text-center flex flex-col items-center space-y-5">
-            <p className="text-xs sm:text-sm font-medium text-amber-300 tracking-wide">
+        <div className="relative max-w-[1280px] mx-auto px-4 sm:px-6 pt-16 sm:pt-24 lg:pt-28 pb-28 sm:pb-36">
+          <div className="max-w-4xl mx-auto text-center flex flex-col items-center space-y-6">
+            <p className="text-xs sm:text-sm font-semibold text-amber-300 tracking-wide">
               {siteSettings.announcementBanner}
             </p>
 
-            <h1 className="font-display text-3xl sm:text-5xl lg:text-[3.25rem] font-bold leading-[1.08] tracking-tight [text-wrap:balance]">
+            <h1 className="font-display text-[2.4rem] sm:text-5xl lg:text-[4.25rem] font-extrabold leading-[1.04] tracking-[-0.025em] text-white drop-shadow-[0_6px_28px_rgba(2,6,23,0.65)] [text-wrap:balance]">
               {siteSettings.heroHeadline}
             </h1>
 
-            <p className="text-sm sm:text-lg text-slate-200 leading-relaxed max-w-2xl">
-              Skip billing queues across all Shankar Mall sections. Reserve chocolate, women &amp; men dresses, decorations, toys, skin care, snacks &amp; biscuits, or grains with zero login—and pay only at the Express Counter.
-            </p>
-
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <AnimatedLink
                 to="/sections"
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#F59E0B] hover:bg-amber-400 text-slate-950 font-semibold text-sm transition-colors whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#F59E0B] hover:bg-amber-400 text-slate-950 font-semibold text-sm shadow-lg shadow-amber-500/20 transition-colors whitespace-nowrap shrink-0"
               >
                 <span>Browse Store Sections</span>
                 <ArrowRight className="w-4 h-4" />
@@ -83,7 +79,7 @@ export function HomePage() {
 
               <AnimatedLink
                 to="/quick-list"
-                className="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-medium text-sm transition-colors whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl bg-white/12 hover:bg-white/22 backdrop-blur-md border border-white/25 text-white font-medium text-sm transition-colors whitespace-nowrap shrink-0"
               >
                 <Camera className="w-4 h-4 text-amber-300" />
                 <span>Snap &amp; Send Paper List</span>
@@ -161,7 +157,7 @@ export function HomePage() {
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {trendingProducts.map((product) => (
-              <ProductCard key={product.id} product={product} compact />
+              <ProductCard key={product.id} product={product} compact priority />
             ))}
           </div>
         </div>

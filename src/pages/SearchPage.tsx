@@ -53,7 +53,7 @@ export function SearchPage() {
   };
 
   return (
-    <div className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-3 sm:pt-4 pb-24 space-y-6">
+    <div className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-3 sm:pt-4 pb-14 space-y-6">
       {/* Search Bar & Relatable Products Box immediately below the Shankar Mall top bar */}
       <section className="space-y-3.5 relative">
         <h1 className="sr-only">Search Shankar Mall Products</h1>

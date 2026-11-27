@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ShoppingBag } from 'lucide-react';
 
 interface ResilientImageProps {
@@ -18,7 +18,19 @@ export function ResilientImage({
   loading = 'lazy',
   fetchPriority = 'auto',
 }: ResilientImageProps) {
+  const imgRef = useRef<HTMLImageElement>(null);
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+    const el = imgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) {
+      setLoaded(true);
+    } else {
+      setLoaded(false);
+    }
+  }, [src]);
 
   if (!src || failed) {
     return (
@@ -37,14 +49,16 @@ export function ResilientImage({
 
   return (
     <img
+      ref={imgRef}
       src={src}
       alt={alt}
       loading={loading}
       decoding="async"
       fetchPriority={fetchPriority}
       referrerPolicy="no-referrer"
+      onLoad={() => setLoaded(true)}
       onError={() => setFailed(true)}
-      className={className}
+      className={`${className} transition-opacity duration-200 ${loaded ? 'opacity-100' : 'opacity-0'}`}
     />
   );
 }

@@ -4,11 +4,11 @@ import { MotionConfig, motion } from 'motion/react';
 import { StoreProvider } from './context/StoreContext';
 import { MotionNavProvider } from './context/MotionNavContext';
 import { Header } from './components/Header';
-import { SectionsDrawer } from './components/SectionsDrawer';
 import { BagDrawer } from './components/BagDrawer';
 import { MobilePillDock } from './components/MobilePillDock';
 import { Footer } from './components/Footer';
 import { ManagerPinModal } from './components/ManagerPinModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { HomePage } from './pages/HomePage';
 import { CategoryPage } from './pages/CategoryPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
@@ -99,11 +99,11 @@ function AnimatedRoutesShell() {
 function AppShell() {
   const { pathname } = useLocation();
   const isManagerRoute = pathname === '/manager';
+  const isHomeRoute = pathname === '/';
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-slate-900">
       {!isManagerRoute && <Header />}
-      <SectionsDrawer />
       <BagDrawer />
       <ManagerPinModal />
 
@@ -112,22 +112,24 @@ function AppShell() {
       </main>
 
       {!isManagerRoute && <Footer />}
-      {!isManagerRoute && <MobilePillDock />}
+      {isHomeRoute && <MobilePillDock />}
     </div>
   );
 }
 
 export default function App() {
   return (
-    <MotionConfig reducedMotion="user">
-      <BrowserRouter>
-        <MotionNavProvider>
-          <StoreProvider>
-            <ScrollToTop />
-            <AppShell />
-          </StoreProvider>
-        </MotionNavProvider>
-      </BrowserRouter>
-    </MotionConfig>
+    <ErrorBoundary>
+      <MotionConfig reducedMotion="user">
+        <BrowserRouter>
+          <MotionNavProvider>
+            <StoreProvider>
+              <ScrollToTop />
+              <AppShell />
+            </StoreProvider>
+          </MotionNavProvider>
+        </BrowserRouter>
+      </MotionConfig>
+    </ErrorBoundary>
   );
 }

@@ -1,0 +1,271 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 4.1: Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ── Global Hardened Primitives ───────────────────────────────────────────
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'mr.beast990345@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidSectionSlug(slug) {
+      return slug is string && slug in [
+        'chocolate',
+        'women-dress',
+        'men-dress',
+        'decorations-things',
+        'toys',
+        'skin-care',
+        'snacks-and-biscuits',
+        'grains'
+      ];
+    }
+
+    function isValidCustomProduct(data, productId) {
+      return data.keys().hasAll([
+          'id', 'slug', 'name', 'brand', 'sectionSlug', 'price', 'mrp',
+          'unit', 'variants', 'inStock', 'trending', 'image', 'description',
+          'aisleLocation', 'highlights', 'authorUid', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'slug', 'name', 'brand', 'sectionSlug', 'price', 'mrp',
+          'unit', 'variants', 'inStock', 'trending', 'image', 'description',
+          'aisleLocation', 'highlights', 'authorUid', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id == productId && isValidId(data.id)
+        && data.slug is string && data.slug.size() >= 1 && data.slug.size() <= 160
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 140
+        && data.brand is string && data.brand.size() >= 1 && data.brand.size() <= 100
+        && isValidSectionSlug(data.sectionSlug)
+        && data.price is number && data.price > 0 && data.price <= 1000000
+        && data.mrp is number && data.mrp >= data.price && data.mrp <= 1000000
+        && data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 60
+        && data.variants is list && data.variants.size() >= 1 && data.variants.size() <= 8
+        && data.variants[0] is string && data.variants[0].size() >= 1 && data.variants[0].size() <= 60
+        && data.inStock is bool
+        && data.trending is bool
+        && data.image is string && data.image.size() >= 1 && data.image.size() <= 250000
+        && data.description is string && data.description.size() <= 600
+        && data.aisleLocation is string && data.aisleLocation.size() <= 120
+        && data.highlights is list && data.highlights.size() >= 1 && data.highlights.size() <= 8
+        && data.highlights[0] is string && data.highlights[0].size() >= 1 && data.highlights[0].size() <= 120
+        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidProductOverride(data, productId) {
+      return data.keys().hasAll(['productId', 'inStock', 'authorUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['productId', 'inStock', 'price', 'mrp', 'authorUid', 'createdAt', 'updatedAt'])
+        && data.productId is string && data.productId == productId && isValidId(data.productId)
+        && data.inStock is bool
+        && (!('price' in data) || (data.price is number && data.price > 0 && data.price <= 1000000))
+        && (!('mrp' in data) || (data.mrp is number && data.mrp > 0 && data.mrp <= 1000000))
+        && (!('price' in data && 'mrp' in data) || data.mrp >= data.price)
+        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSiteSettings(data) {
+      return data.keys().hasAll([
+          'heroHeadline', 'announcementBanner', 'openingHours',
+          'authorUid', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'heroHeadline', 'announcementBanner', 'openingHours',
+          'authorUid', 'createdAt', 'updatedAt'
+        ])
+        && data.heroHeadline is string && data.heroHeadline.size() >= 1 && data.heroHeadline.size() <= 180
+        && data.announcementBanner is string && data.announcementBanner.size() >= 1 && data.announcementBanner.size() <= 180
+        && data.openingHours is string && data.openingHours.size() >= 1 && data.openingHours.size() <= 80
+        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminUser(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'role', 'createdAt'])
+        && data.uid is string && data.uid == userId && data.uid.size() <= 128
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && data.role == 'admin'
+        && data.createdAt is timestamp;
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll([
+          'id', 'kind', 'customerName', 'phone', 'branch', 'pickupSlot',
+          'paymentMode', 'status', 'ownerUid', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'kind', 'customerName', 'phone', 'branch', 'pickupSlot',
+          'paymentMode', 'status', 'ownerUid', 'items', 'subtotal', 'totalMrp',
+          'savings', 'listText', 'photoDataUrl', 'photoFileName',
+          'estimatedItemsCount', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id.size() >= 3 && data.id.size() <= 32
+        && data.kind in ['standard', 'photo-list']
+        && data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100
+        && data.phone is string && data.phone.size() >= 10 && data.phone.size() <= 15 && data.phone.matches('^[0-9]{10}$')
+        && data.branch is string && data.branch.size() >= 2 && data.branch.size() <= 80
+        && data.pickupSlot is string && data.pickupSlot.size() >= 2 && data.pickupSlot.size() <= 60
+        && data.paymentMode is string && data.paymentMode.size() >= 2 && data.paymentMode.size() <= 80
+        && data.status in ['Pending', 'Packing', 'Ready', 'Completed']
+        && data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128
+        && (!('items' in data) || (data.items is list && data.items.size() <= 50 && (data.items.size() == 0 || data.items[0] is map)))
+        && (!('subtotal' in data) || (data.subtotal is number && data.subtotal >= 0 && data.subtotal <= 5000000))
+        && (!('totalMrp' in data) || (data.totalMrp is number && data.totalMrp >= 0 && data.totalMrp <= 5000000))
+        && (!('savings' in data) || (data.savings is number && data.savings >= 0 && data.savings <= 5000000))
+        && (!('listText' in data) || (data.listText is string && data.listText.size() <= 2000))
+        && (!('photoDataUrl' in data) || (data.photoDataUrl is string && data.photoDataUrl.size() <= 250000))
+        && (!('photoFileName' in data) || (data.photoFileName is string && data.photoFileName.size() <= 160))
+        && (!('estimatedItemsCount' in data) || (data.estimatedItemsCount is number && data.estimatedItemsCount >= 0 && data.estimatedItemsCount <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // ── Startup Connection Check (Read-Only Non-PII) ─────────────────────────
+    match /test/connection {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    // ── Public Catalog: Custom Products (Zero PII) ───────────────────────────
+    match /custom_products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if true;
+      allow create: if isAdmin()
+        && isValidId(productId)
+        && isValidCustomProduct(incoming(), productId)
+        && incoming().authorUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(productId)
+        && isValidCustomProduct(incoming(), productId)
+        && incoming().id == existing().id
+        && incoming().slug == existing().slug
+        && incoming().authorUid == existing().authorUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'brand', 'sectionSlug', 'price', 'mrp', 'unit',
+          'variants', 'inStock', 'trending', 'image', 'description',
+          'aisleLocation', 'highlights', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    // ── Public Catalog: Stock & Price Overrides (Zero PII) ───────────────────
+    match /product_overrides/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if true;
+      allow create: if isAdmin()
+        && isValidId(productId)
+        && isValidProductOverride(incoming(), productId)
+        && incoming().authorUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(productId)
+        && isValidProductOverride(incoming(), productId)
+        && incoming().productId == existing().productId
+        && incoming().authorUid == existing().authorUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'inStock', 'price', 'mrp', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    // ── Public Storefront Settings (Zero PII) ────────────────────────────────
+    match /site_settings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow create: if isAdmin()
+        && isValidId(settingId)
+        && isValidSiteSettings(incoming())
+        && incoming().authorUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(settingId)
+        && isValidSiteSettings(incoming())
+        && incoming().authorUid == existing().authorUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'heroHeadline', 'announcementBanner', 'openingHours', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(settingId);
+    }
+
+    // ── Store Admins Allowlist ───────────────────────────────────────────────
+    match /admins/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+        && isValidId(userId)
+        && isValidAdminUser(incoming(), userId)
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // ── Customer Bookings (PII Isolated) ─────────────────────────────────────
+    match /bookings/{bookingId} {
+      allow get: if isValidId(bookingId) && (
+        isAdmin() || (isVerifiedUser() && existing().ownerUid == request.auth.uid)
+      );
+      allow list: if isAdmin() || (
+        isVerifiedUser() && resource.data.ownerUid == request.auth.uid
+      );
+      allow create: if isVerifiedUser()
+        && isValidId(bookingId)
+        && isValidBooking(incoming())
+        && incoming().ownerUid == request.auth.uid
+        && incoming().status == 'Pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && (existing().status != 'Completed' || isAdmin())
+        && isValidId(bookingId)
+        && isValidBooking(incoming())
+        && incoming().id == existing().id
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(bookingId);
+    }
+  }
+}

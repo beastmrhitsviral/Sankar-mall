@@ -351,20 +351,35 @@ export function saveProductOverrides(
   storage.setItem(PRODUCT_OVERRIDES_KEY, JSON.stringify(overrides));
 }
 
-export function loadProducts(customStorage?: StorageLike): Product[] {
+export function loadCustomProducts(customStorage?: StorageLike): Product[] {
   const storage = getStorage(customStorage);
   const raw = storage.getItem(CUSTOM_PRODUCTS_KEY);
+  if (!raw) return [];
+  try {
+    const custom = JSON.parse(raw) as Product[];
+    return Array.isArray(custom) ? custom : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomProducts(
+  products: Product[],
+  customStorage?: StorageLike
+): void {
+  const storage = getStorage(customStorage);
+  storage.setItem(CUSTOM_PRODUCTS_KEY, JSON.stringify(products));
+}
+
+export function loadProducts(customStorage?: StorageLike): Product[] {
+  const custom = loadCustomProducts(customStorage);
   const overrides = loadProductOverrides(customStorage);
-  let base: Product[] = [...SEEDED_PRODUCTS];
-  if (raw) {
-    try {
-      const custom = JSON.parse(raw) as Product[];
-      if (Array.isArray(custom)) {
-        base = [...custom, ...SEEDED_PRODUCTS];
-      }
-    } catch {
-      base = [...SEEDED_PRODUCTS];
-    }
+  const seen = new Set<string>();
+  const base: Product[] = [];
+  for (const p of [...custom, ...SEEDED_PRODUCTS]) {
+    if (!p || !p.id || seen.has(p.id)) continue;
+    seen.add(p.id);
+    base.push(p);
   }
   return base.map((p) => {
     const ov = overrides[p.id];
@@ -457,17 +472,7 @@ export function addCustomProduct(
   productInput: Omit<Product, 'id' | 'slug'>,
   customStorage?: StorageLike
 ): Product {
-  const storage = getStorage(customStorage);
-  const raw = storage.getItem(CUSTOM_PRODUCTS_KEY);
-  let custom: Product[] = [];
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) custom = parsed;
-    } catch {
-      custom = [];
-    }
-  }
+  const custom = loadCustomProducts(customStorage);
 
   const baseSlug = productInput.name
     .toLowerCase()
@@ -481,8 +486,22 @@ export function addCustomProduct(
   };
 
   custom.unshift(newProduct);
-  storage.setItem(CUSTOM_PRODUCTS_KEY, JSON.stringify(custom));
+  saveCustomProducts(custom, customStorage);
   return newProduct;
+}
+
+export function deleteCustomProduct(
+  productId: string,
+  customStorage?: StorageLike
+): Product[] {
+  const nextCustom = loadCustomProducts(customStorage).filter((p) => p.id !== productId);
+  saveCustomProducts(nextCustom, customStorage);
+  const overrides = loadProductOverrides(customStorage);
+  if (overrides[productId]) {
+    delete overrides[productId];
+    saveProductOverrides(overrides, customStorage);
+  }
+  return loadProducts(customStorage);
 }
 
 export function createStandardBooking(

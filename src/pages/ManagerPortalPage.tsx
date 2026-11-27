@@ -13,6 +13,7 @@ import {
   Save,
   Search,
   Sparkles,
+  Trash2,
   Type,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
@@ -20,6 +21,8 @@ import { useMotionNav } from '../context/MotionNavContext';
 import { formatINR } from '../lib/bookingStore';
 import { SECTIONS } from '../lib/catalog';
 import { BookingRecord, Product, SectionSlug } from '../lib/types';
+import { CloudPublishBanner } from '../components/CloudPublishBanner';
+import { ProductImageUploadBox } from '../components/ProductImageUploadBox';
 import { ResilientImage } from '../components/ResilientImage';
 
 type PortalTab = 'inventory' | 'customizer' | 'reservations';
@@ -35,6 +38,8 @@ export function ManagerPortalPage() {
     toggleStock,
     editProductPrice,
     addProduct,
+    deleteProduct,
+    isCloudAdmin,
     updateSiteSettings,
     resetSiteDefaults,
     updateStatus,
@@ -59,6 +64,8 @@ export function ManagerPortalPage() {
   const [newPrice, setNewPrice] = useState('');
   const [newMrp, setNewMrp] = useState('');
   const [newUnit, setNewUnit] = useState('');
+  const [newImageDataUrl, setNewImageDataUrl] = useState('');
+  const [newImageFileName, setNewImageFileName] = useState('');
   const [newAddedMsg, setNewAddedMsg] = useState<string | null>(null);
 
   // Website Text & Banner Customizer state
@@ -168,18 +175,24 @@ export function ManagerPortalPage() {
       variants: [newUnit.trim() || 'Standard Pack'],
       inStock: true,
       trending: true,
-      image: sectionMeta.image,
+      image: newImageDataUrl || sectionMeta.image,
       description: `${newName.trim()} available for Click & Collect at Shankar Mall Dhanbad.`,
       aisleLocation: `${sectionMeta.name} Section · Express Shelf`,
       highlights: ['Ready for 2-hour pickup', 'Pay at Express Counter'],
     });
 
-    setNewAddedMsg(`Added "${created.name}" to ${sectionMeta.name}.`);
+    setNewAddedMsg(
+      isCloudAdmin
+        ? `Published "${created.name}" to ${sectionMeta.name} for all visitors.`
+        : `Saved "${created.name}" locally. Sign in with Google above to publish to all visitors.`
+    );
     setNewName('');
     setNewBrand('');
     setNewPrice('');
     setNewMrp('');
     setNewUnit('');
+    setNewImageDataUrl('');
+    setNewImageFileName('');
     setShowAddForm(false);
     window.setTimeout(() => setNewAddedMsg(null), 3000);
   };
@@ -250,6 +263,8 @@ export function ManagerPortalPage() {
       </header>
 
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-8 space-y-8">
+        <CloudPublishBanner />
+
         {/* Live KPI Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 rounded-2xl bg-white border border-slate-200">
@@ -320,7 +335,8 @@ export function ManagerPortalPage() {
                 <div className="relative flex-1 min-w-[220px] max-w-md">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
-                    type="search"
+                    type="text"
+                    enterKeyHint="search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Filter products or food items..."
@@ -472,6 +488,20 @@ export function ManagerPortalPage() {
                   />
                 </div>
 
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <ProductImageUploadBox
+                    value={newImageDataUrl}
+                    fileName={newImageFileName}
+                    onChange={(dataUrl, fileName) => {
+                      setNewImageDataUrl(dataUrl);
+                      setNewImageFileName(fileName);
+                    }}
+                    fallbackPreviewSrc={
+                      (SECTIONS.find((s) => s.slug === newSection) || SECTIONS[0]).image
+                    }
+                  />
+                </div>
+
                 <div className="sm:col-span-2 lg:col-span-3 pt-1">
                   <motion.button
                     type="submit"
@@ -582,17 +612,29 @@ export function ManagerPortalPage() {
                       >
                         <span>{product.inStock ? 'In Stock' : 'Out of Stock'}</span>
                         <span
-                          className={`w-8 h-4.5 rounded-full p-0.5 flex items-center transition-colors ${
-                            product.inStock ? 'bg-emerald-600 justify-end' : 'bg-rose-500 justify-start'
+                          className={`w-9 h-5 rounded-full p-0.5 flex items-center transition-colors ${
+                            product.inStock ? 'bg-emerald-600' : 'bg-rose-500'
                           }`}
                         >
                           <motion.span
-                            layout
-                            transition={{ type: 'spring', stiffness: 450, damping: 30 }}
-                            className="w-3.5 h-3.5 rounded-full bg-white shadow-xs"
+                            animate={{ x: product.inStock ? 16 : 0 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                            className="w-4 h-4 rounded-full bg-white shadow-xs will-change-transform"
                           />
                         </span>
                       </motion.button>
+
+                      {product.id.startsWith('custom-') && (
+                        <motion.button
+                          type="button"
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => deleteProduct(product.id)}
+                          aria-label={`Delete custom product ${product.name}`}
+                          className="p-2 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 cursor-pointer transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </motion.button>
+                      )}
                     </div>
                   </div>
                 );
@@ -610,7 +652,7 @@ export function ManagerPortalPage() {
                 <span>Website Text &amp; Banner Customizer</span>
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Changes save to browser storage and update the main storefront immediately.
+                Updates the live Shankar Mall storefront for all visitors.
               </p>
             </div>
 

@@ -1,13 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import {
-  AnimatePresence,
-  motion,
-  useMotionValue,
-  useMotionValueEvent,
-  useSpring,
-  useTransform,
-} from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Camera, Home, LayoutGrid, Search, Sparkles, X } from 'lucide-react';
 import { SECTIONS } from '../lib/catalog';
 import { AnimatedLink } from './AnimatedLink';
@@ -26,60 +19,13 @@ function isTextInputFocused(): boolean {
 }
 
 export function MobilePillDock() {
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const [isBigDockOpen, setBigDockOpen] = useState(false);
-  const [isScrollHidden, setIsScrollHidden] = useState(false);
 
-  // Continuous GPU-composited scroll progress: 0 = visible, 1 = smoothly tucked away
-  const hideProgress = useMotionValue(0);
-  const smoothHide = useSpring(hideProgress, { stiffness: 220, damping: 30, mass: 0.7 });
-  const dockScrollY = useTransform(smoothHide, [0, 1], [0, 88]);
-  const dockScrollOpacity = useTransform(smoothHide, [0, 0.85, 1], [1, 0.15, 0]);
-  const dockScrollScale = useTransform(smoothHide, [0, 1], [1, 0.92]);
-
-  useMotionValueEvent(smoothHide, 'change', (latest) => {
-    const hidden = latest > 0.85;
-    setIsScrollHidden((prev) => (prev === hidden ? prev : hidden));
-  });
-
-  // Reset dock visibility on route navigation
-  const lastScrollYRef = useRef<number>(
-    typeof window !== 'undefined' ? Math.max(0, window.scrollY) : 0
-  );
+  // Close sections menu box on navigation away from Home
   useEffect(() => {
-    lastScrollYRef.current = Math.max(0, window.scrollY);
-    hideProgress.set(0);
-    setIsScrollHidden(false);
-  }, [pathname, search, hideProgress]);
-
-  // Slowly hide on scroll down and slowly bring back on scroll up across every page
-  useEffect(() => {
-    const onScroll = () => {
-      if (isBigDockOpen) {
-        hideProgress.set(0);
-        lastScrollYRef.current = Math.max(0, window.scrollY);
-        return;
-      }
-
-      const currentY = Math.max(0, window.scrollY);
-      const delta = currentY - lastScrollYRef.current;
-      lastScrollYRef.current = currentY;
-
-      if (currentY <= 16) {
-        hideProgress.set(0);
-        return;
-      }
-
-      if (delta > 0) {
-        hideProgress.set(Math.min(1, hideProgress.get() + delta / 140));
-      } else if (delta < 0) {
-        hideProgress.set(Math.max(0, hideProgress.get() + delta / 110));
-      }
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [hideProgress, isBigDockOpen]);
+    setBigDockOpen(false);
+  }, [pathname]);
 
   // Lock dock at its resting screen position when soft keyboard opens or overlays appear
   const baseViewportHeightRef = useRef<number>(
@@ -130,8 +76,11 @@ export function MobilePillDock() {
     };
   }, []);
 
+  if (pathname !== '/') {
+    return null;
+  }
+
   const closeBigDock = () => setBigDockOpen(false);
-  const isSearchActive = pathname === '/search' || pathname === '/search-results';
 
   return (
     <div className="md:hidden">
@@ -150,7 +99,7 @@ export function MobilePillDock() {
         )}
       </AnimatePresence>
 
-      {/* Persistent Bottom Dock container — Sections Menu Box emerges right above the dock */}
+      {/* Persistent Bottom Dock container — stays fixed steadily on Homepage */}
       <div
         style={{ bottom: `${12 - keyboardOffsetPx}px` }}
         className={`fixed inset-x-0 flex flex-col items-center gap-3 px-3 pointer-events-none ${
@@ -168,7 +117,7 @@ export function MobilePillDock() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 14, scale: 0.92 }}
               transition={{ type: 'spring', damping: 32, stiffness: 460, mass: 0.65 }}
-              className="pointer-events-auto w-full max-w-md rounded-[28px] bg-slate-900/60 backdrop-blur-xl border border-white/35 ring-1 ring-inset ring-white/20 shadow-[0_24px_64px_rgba(15,23,42,0.42)] p-4 text-white will-change-transform"
+              className="pointer-events-auto w-full max-w-md rounded-[28px] bg-slate-900/65 backdrop-blur-xl border border-white/35 ring-1 ring-inset ring-white/20 shadow-[0_24px_64px_rgba(15,23,42,0.42)] p-4 text-white will-change-transform"
             >
               {/* Menu Box Header */}
               <div className="flex items-center justify-between gap-3 px-1 pb-3 border-b border-white/20">
@@ -197,38 +146,28 @@ export function MobilePillDock() {
                 <AnimatedLink
                   to="/category/all"
                   onBeforeNavigate={closeBigDock}
-                  className={`inline-flex items-center gap-2 rounded-full px-3.5 py-2 border text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
-                    pathname === '/category/all'
-                      ? 'bg-amber-400/95 border-amber-300 text-slate-950'
-                      : 'bg-white/20 hover:bg-white/30 border-white/30 text-white'
-                  }`}
+                  className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 border border-white/30 bg-white/20 hover:bg-white/30 text-xs font-semibold text-white transition-colors whitespace-nowrap shrink-0"
                 >
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
                   <span>All Sections</span>
                 </AnimatedLink>
 
-                {SECTIONS.map((section) => {
-                  const isActive = pathname === `/category/${section.slug}`;
-                  return (
-                    <AnimatedLink
-                      key={section.slug}
-                      to={`/category/${section.slug}`}
-                      onBeforeNavigate={closeBigDock}
-                      className={`inline-flex items-center gap-2 rounded-full pl-1.5 pr-3.5 py-1.5 border text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
-                        isActive
-                          ? 'bg-amber-400/95 border-amber-300 text-slate-950'
-                          : 'bg-white/15 hover:bg-white/25 border-white/30 text-white shadow-sm'
-                      }`}
-                    >
-                      <ResilientImage
-                        src={section.image}
-                        alt={section.name}
-                        className="w-6 h-6 rounded-full object-cover border border-white/35 shrink-0"
-                      />
-                      <span className="drop-shadow-xs">{section.name}</span>
-                    </AnimatedLink>
-                  );
-                })}
+                {SECTIONS.map((section) => (
+                  <AnimatedLink
+                    key={section.slug}
+                    to={`/category/${section.slug}`}
+                    onBeforeNavigate={closeBigDock}
+                    className="inline-flex items-center gap-2 rounded-full pl-1.5 pr-3.5 py-1.5 border border-white/30 bg-white/15 hover:bg-white/25 text-xs font-semibold text-white shadow-sm transition-colors whitespace-nowrap shrink-0"
+                  >
+                    <ResilientImage
+                      src={section.image}
+                      alt={section.name}
+                      loading="eager"
+                      className="w-6 h-6 rounded-full object-cover border border-white/35 shrink-0"
+                    />
+                    <span className="drop-shadow-xs">{section.name}</span>
+                  </AnimatedLink>
+                ))}
 
                 <AnimatedLink
                   to="/quick-list"
@@ -243,26 +182,21 @@ export function MobilePillDock() {
           )}
         </AnimatePresence>
 
-        {/* Bottom Dock — Slowly hides on scroll down and slowly reappears on scroll up */}
+        {/* Bottom Dock — Always visible steadily on Homepage */}
         <motion.nav
           aria-label="Mobile quick navigation"
-          aria-hidden={isScrollHidden}
-          style={{
-            y: dockScrollY,
-            opacity: dockScrollOpacity,
-            scale: dockScrollScale,
-          }}
-          className={`will-change-transform ${
-            isScrollHidden ? 'pointer-events-none' : 'pointer-events-auto'
-          }`}
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 360, mass: 0.7 }}
+          className="pointer-events-auto will-change-transform"
         >
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/35 backdrop-blur-lg text-white shadow-[0_12px_40px_rgba(15,23,42,0.28)] border border-white/35 ring-1 ring-inset ring-white/20">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/40 backdrop-blur-lg text-white shadow-[0_12px_40px_rgba(15,23,42,0.28)] border border-white/35 ring-1 ring-inset ring-white/20">
             <AnimatedLink
               to="/"
               onBeforeNavigate={closeBigDock}
               aria-label="Home"
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
-                pathname === '/' && !isBigDockOpen
+                !isBigDockOpen
                   ? 'bg-white/25 text-amber-300 border border-white/25'
                   : 'text-white/95 hover:bg-white/15'
               }`}
@@ -292,11 +226,7 @@ export function MobilePillDock() {
               to="/search"
               onBeforeNavigate={closeBigDock}
               aria-label="Search"
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] ${
-                isSearchActive && !isBigDockOpen
-                  ? 'bg-white/25 text-amber-300 border border-white/25'
-                  : 'text-white/95 hover:bg-white/15'
-              }`}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 drop-shadow-[0_1px_2px_rgba(15,23,42,0.55)] text-white/95 hover:bg-white/15"
             >
               <Search className="w-4 h-4" />
               <span>Search</span>

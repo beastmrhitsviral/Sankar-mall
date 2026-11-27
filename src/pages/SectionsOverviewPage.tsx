@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { SECTIONS, getProductsBySection } from '../lib/catalog';
 import { AnimatedLink } from '../components/AnimatedLink';
@@ -8,18 +8,14 @@ export function SectionsOverviewPage() {
   const { products } = useStore();
 
   return (
-    <div className="max-w-4xl mx-auto px-3.5 sm:px-6 py-6 sm:py-10 pb-24 space-y-8">
+    <div className="max-w-4xl mx-auto px-3.5 sm:px-6 py-6 sm:py-10 pb-16 space-y-8">
       {/* Page Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200">
-        <div className="space-y-1">
-          <AnimatedLink
-            to="/"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-[#1E3A8A]"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Home</span>
-          </AnimatedLink>
-          <h1 className="font-display text-xl sm:text-2xl font-bold text-slate-900">
+        <div>
+          <p className="text-xs font-semibold text-[#1E3A8A]">
+            Shankar Mall Directory
+          </p>
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">
             All Store Sections &amp; Products
           </h1>
         </div>
@@ -35,7 +31,7 @@ export function SectionsOverviewPage() {
 
       {/* Each of the 8 Sections: Section Name + Browse All + 4 Compact Products (2 per horizontal row) */}
       <div className="space-y-8">
-        {SECTIONS.map((section) => {
+        {SECTIONS.map((section, sectionIdx) => {
           const sectionItems = getProductsBySection(products, section.slug).slice(0, 4);
           return (
             <section
@@ -63,7 +59,12 @@ export function SectionsOverviewPage() {
               {/* Always 2 products per horizontal line, 4 products = 2x2 compact rows */}
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {sectionItems.map((product) => (
-                  <ProductCard key={product.id} product={product} compact />
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    compact
+                    priority={sectionIdx === 0}
+                  />
                 ))}
               </div>
             </section>

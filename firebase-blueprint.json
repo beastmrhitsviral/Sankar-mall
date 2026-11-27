@@ -1,0 +1,389 @@
+{
+  "entities": {
+    "CustomProduct": {
+      "title": "CustomProduct",
+      "description": "Storefront catalog product created and published by a store manager.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128,
+          "description": "Unique product identifier"
+        },
+        "slug": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "URL-friendly product slug"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Product display name"
+        },
+        "brand": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Brand name"
+        },
+        "sectionSlug": {
+          "type": "string",
+          "enum": [
+            "chocolate",
+            "women-dress",
+            "men-dress",
+            "decorations-things",
+            "toys",
+            "skin-care",
+            "snacks-and-biscuits",
+            "grains"
+          ],
+          "maxLength": 40,
+          "description": "Department section slug"
+        },
+        "price": {
+          "type": "number",
+          "description": "Selling price in INR"
+        },
+        "mrp": {
+          "type": "number",
+          "description": "Maximum retail price in INR"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Pack unit label"
+        },
+        "variants": {
+          "type": "array",
+          "description": "Available pack/size variants"
+        },
+        "inStock": {
+          "type": "boolean",
+          "description": "Live stock availability flag"
+        },
+        "trending": {
+          "type": "boolean",
+          "description": "Featured on homepage trending grid"
+        },
+        "image": {
+          "type": "string",
+          "maxLength": 250000,
+          "description": "Asset path, image URL, or compressed JPEG thumbnail data URL"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 600,
+          "description": "Short product description"
+        },
+        "aisleLocation": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Store aisle location"
+        },
+        "highlights": {
+          "type": "array",
+          "description": "Key product bullet highlights"
+        },
+        "authorUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Firebase Auth UID of publishing manager"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-modified timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "slug",
+        "name",
+        "brand",
+        "sectionSlug",
+        "price",
+        "mrp",
+        "unit",
+        "variants",
+        "inStock",
+        "trending",
+        "image",
+        "description",
+        "aisleLocation",
+        "highlights",
+        "authorUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ProductOverride": {
+      "title": "ProductOverride",
+      "description": "Published stock status and price/MRP overrides for catalog items.",
+      "type": "object",
+      "properties": {
+        "productId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128,
+          "description": "Target product ID"
+        },
+        "inStock": {
+          "type": "boolean",
+          "description": "Published availability status"
+        },
+        "price": {
+          "type": "number",
+          "description": "Optional overridden selling price in INR"
+        },
+        "mrp": {
+          "type": "number",
+          "description": "Optional overridden MRP in INR"
+        },
+        "authorUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Firebase Auth UID of publishing manager"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": [
+        "productId",
+        "inStock",
+        "authorUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SiteSettingsDoc": {
+      "title": "SiteSettingsDoc",
+      "description": "Published storefront headline, announcement banner, and opening hours.",
+      "type": "object",
+      "properties": {
+        "heroHeadline": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "description": "Homepage hero headline"
+        },
+        "announcementBanner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "description": "Storefront announcement pill text"
+        },
+        "openingHours": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Dhanbad branches opening hours"
+        },
+        "authorUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Firebase Auth UID of publishing manager"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": [
+        "heroHeadline",
+        "announcementBanner",
+        "openingHours",
+        "authorUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized store manager allowlist entry.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Firebase Auth UID"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Verified email address"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin"],
+          "maxLength": 20,
+          "description": "Role name"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Customer Click & Collect pickup reservation or photo list order containing PII.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "Booking pass ID"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["standard", "photo-list"],
+          "maxLength": 20,
+          "description": "Booking type"
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100,
+          "description": "Customer full name"
+        },
+        "phone": {
+          "type": "string",
+          "pattern": "^[0-9]{10}$",
+          "maxLength": 15,
+          "description": "10-digit WhatsApp mobile number"
+        },
+        "branch": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Selected Dhanbad branch"
+        },
+        "pickupSlot": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "Selected pickup window"
+        },
+        "paymentMode": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Counter payment label"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Pending", "Packing", "Ready", "Completed"],
+          "maxLength": 20,
+          "description": "Fulfillment status"
+        },
+        "ownerUid": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "UID of signed-in creator"
+        },
+        "items": {
+          "type": "array",
+          "description": "Reserved bag items"
+        },
+        "subtotal": {
+          "type": "number",
+          "description": "Order subtotal in INR"
+        },
+        "totalMrp": {
+          "type": "number",
+          "description": "Order total MRP in INR"
+        },
+        "savings": {
+          "type": "number",
+          "description": "Customer savings in INR"
+        },
+        "listText": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Typed photo-list items"
+        },
+        "photoDataUrl": {
+          "type": "string",
+          "maxLength": 250000,
+          "description": "Compressed shopping list photo"
+        },
+        "photoFileName": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Uploaded file name"
+        },
+        "estimatedItemsCount": {
+          "type": "number",
+          "description": "Estimated item count"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-modified timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "customerName",
+        "phone",
+        "branch",
+        "pickupSlot",
+        "paymentMode",
+        "status",
+        "ownerUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/custom_products/{productId}": {
+      "schema": { "$ref": "#/entities/CustomProduct" },
+      "description": "Publicly readable custom catalog products published by store managers."
+    },
+    "/product_overrides/{productId}": {
+      "schema": { "$ref": "#/entities/ProductOverride" },
+      "description": "Publicly readable live stock and price overrides for catalog products."
+    },
+    "/site_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettingsDoc" },
+      "description": "Publicly readable storefront headline, banner, and opening hours configuration."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Authorized store manager UID allowlist."
+    },
+    "/bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/Booking" },
+      "description": "Customer Click & Collect pickup bookings with strict owner and admin isolation."
+    }
+  }
+}
