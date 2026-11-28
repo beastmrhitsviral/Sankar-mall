@@ -3,7 +3,9 @@ import {
   GoogleAuthProvider,
   User,
   getAuth,
+  getRedirectResult,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
 } from 'firebase/auth';
 import {
@@ -102,9 +104,40 @@ export async function checkIsStoreAdmin(user: User | null): Promise<boolean> {
   }
 }
 
-export async function signInAdminWithGoogle(): Promise<User> {
-  const result = await signInWithPopup(auth, googleProvider);
-  return result.user;
+export async function completeGoogleRedirectSignIn(): Promise<User | null> {
+  try {
+    const result = await getRedirectResult(auth);
+    return result?.user ?? null;
+  } catch (err) {
+    const code = (err as { code?: string })?.code;
+    if (code === 'auth/unauthorized-domain') {
+      throw new Error('This website domain is not authorized for Google Sign-In in Firebase.');
+    }
+    throw err;
+  }
+}
+
+export async function signInAdminWithGoogle(): Promise<User | null> {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (err) {
+    const code = (err as { code?: string })?.code || '';
+    if (
+      code === 'auth/popup-blocked' ||
+      code === 'auth/operation-not-supported-in-this-environment'
+    ) {
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
+    if (code === 'auth/popup-closed-by-user') {
+      throw new Error('Google Sign-In was closed before finishing. Tap the button again to sign in.');
+    }
+    if (code === 'auth/unauthorized-domain') {
+      throw new Error('This domain is not yet allowed in Firebase Auth. Please open from your AI Studio URL.');
+    }
+    throw err;
+  }
 }
 
 export async function signOutAdmin(): Promise<void> {

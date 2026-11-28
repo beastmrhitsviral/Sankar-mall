@@ -40,12 +40,17 @@ export function ManagerPortalPage() {
     addProduct,
     deleteProduct,
     isCloudAdmin,
+    authReady,
+    authError,
+    pendingCount,
+    signInAsCloudAdmin,
     updateSiteSettings,
     resetSiteDefaults,
     updateStatus,
   } = useStore();
   const { animatedNavigate } = useMotionNav();
 
+  const [allowOfflinePreview, setAllowOfflinePreview] = useState(false);
   const [activeTab, setActiveTab] = useState<PortalTab>('inventory');
   const [searchQuery, setSearchQuery] = useState('');
   const [sectionFilter, setSectionFilter] = useState<'all' | SectionSlug>('all');
@@ -142,6 +147,71 @@ export function ManagerPortalPage() {
     );
   }
 
+  // Step 2: Ensure manager connects store Google account so changes publish across all phones
+  if (authReady && !isCloudAdmin && !allowOfflinePreview) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center p-4 sm:p-6">
+        <div className="max-w-md w-full rounded-3xl bg-white border border-slate-200 shadow-lg p-7 sm:p-8 space-y-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold">
+              Step 2 · Live Store Sync
+            </span>
+            <button
+              type="button"
+              onClick={() => animatedNavigate('/')}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-900 cursor-pointer"
+            >
+              Exit
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="font-display text-2xl font-bold text-slate-900 leading-tight">
+              Sign in with Google to Publish Changes
+            </h1>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Sign in with your store Google account (<span className="font-semibold text-slate-900">mr.beast990345@gmail.com</span>) so added products, stock toggles, and price updates appear immediately on every other phone.
+            </p>
+          </div>
+
+          {pendingCount > 0 && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-900">
+              You have {pendingCount} unsaved local {pendingCount === 1 ? 'change' : 'changes'} ready to publish as soon as you sign in.
+            </div>
+          )}
+
+          {authError && (
+            <div
+              role="alert"
+              className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-800"
+            >
+              {authError}
+            </div>
+          )}
+
+          <div className="space-y-2.5 pt-1">
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.96 }}
+              onClick={() => void signInAsCloudAdmin()}
+              className="w-full py-3.5 px-4 rounded-xl bg-[#1E3A8A] hover:bg-[#172E6E] text-white text-sm font-semibold shadow-sm cursor-pointer transition-colors"
+            >
+              Connect Google Account &amp; Manage Store
+            </motion.button>
+
+            <button
+              type="button"
+              onClick={() => setAllowOfflinePreview(true)}
+              className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-600 cursor-pointer transition-colors"
+            >
+              Continue in This-Device Draft Mode Only
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const startPriceEdit = (p: Product) => {
     setEditingPriceId(p.id);
     setDraftPrice(String(p.price));
@@ -224,7 +294,7 @@ export function ManagerPortalPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       {/* Top Portal Bar */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-slate-200">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold text-[#1E3A8A] uppercase tracking-wider">
@@ -391,7 +461,9 @@ export function ManagerPortalPage() {
                     Add New Product / Food Item
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Immediately published across your live Shankar Mall catalog.
+                    {isCloudAdmin
+                      ? 'Publishes live to Firestore so every phone and visitor sees it immediately.'
+                      : 'Draft mode: connect Google account above to publish to other phones.'}
                   </p>
                 </div>
 

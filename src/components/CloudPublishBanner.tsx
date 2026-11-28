@@ -139,7 +139,7 @@ export function CloudPublishBanner() {
         >
           <span className="flex items-center gap-2 min-w-0">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span className="truncate">Could not sync to cloud store. Please retry.</span>
+            <span className="break-words">{publishError}</span>
           </span>
           {isCloudAdmin && (
             <button

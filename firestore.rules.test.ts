@@ -9,7 +9,7 @@ test('firestore.rules enforces Eight Pillars baseline primitives', () => {
   assert.match(rulesText, /rules_version\s*=\s*'2'/);
   assert.match(rulesText, /match \/\{document=\*\*\}\s*\{\s*allow read, write: if false;\s*\}/);
   assert.match(rulesText, /request\.auth\.token\.email_verified\s*==\s*true/);
-  assert.match(rulesText, /request\.auth\.token\.email\s*==\s*'mr\.beast990345@gmail\.com'/);
+  assert.match(rulesText, /request\.auth\.token\.email\.lower\(\)\s*==\s*'mr\.beast990345@gmail\.com'/);
   assert.match(rulesText, /function isValidId\(id\)/);
   assert.match(rulesText, /incoming\(\)\.createdAt\s*==\s*request\.time/);
   assert.match(rulesText, /incoming\(\)\.updatedAt\s*==\s*request\.time/);
