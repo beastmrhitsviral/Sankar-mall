@@ -9,6 +9,7 @@ import {
   UploadCloud,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { AuthErrorAlert } from './AuthErrorAlert';
 
 export function CloudPublishBanner() {
   const {
@@ -105,9 +106,7 @@ export function CloudPublishBanner() {
                 )}
               </div>
               <p className="text-xs text-slate-700 mt-0.5">
-                {authError
-                  ? authError
-                  : 'Connect your store Google account so added products and In Stock / Out of Stock updates publish for everyone opening the website.'}
+                Connect your store Google account so added products and In Stock / Out of Stock updates publish for everyone opening the website.
               </p>
             </div>
           </div>
@@ -131,6 +130,8 @@ export function CloudPublishBanner() {
           </div>
         </div>
       )}
+
+      {authError && !isCloudAdmin && <AuthErrorAlert authError={authError} />}
 
       {publishError && (
         <div

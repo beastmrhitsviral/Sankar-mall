@@ -17,6 +17,9 @@ import {
 import firebaseConfig from '../../firebase-applet-config.json';
 
 export const BOOTSTRAPPED_ADMIN_EMAIL = 'mr.beast990345@gmail.com';
+export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
+export const FIREBASE_AUTH_SETTINGS_URL = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings`;
+export const UNAUTHORIZED_DOMAIN_PREFIX = 'UNAUTHORIZED_DOMAIN:';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -111,7 +114,8 @@ export async function completeGoogleRedirectSignIn(): Promise<User | null> {
   } catch (err) {
     const code = (err as { code?: string })?.code;
     if (code === 'auth/unauthorized-domain') {
-      throw new Error('This website domain is not authorized for Google Sign-In in Firebase.');
+      const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+      throw new Error(`${UNAUTHORIZED_DOMAIN_PREFIX}${host}`);
     }
     throw err;
   }
@@ -134,7 +138,8 @@ export async function signInAdminWithGoogle(): Promise<User | null> {
       throw new Error('Google Sign-In was closed before finishing. Tap the button again to sign in.');
     }
     if (code === 'auth/unauthorized-domain') {
-      throw new Error('This domain is not yet allowed in Firebase Auth. Please open from your AI Studio URL.');
+      const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+      throw new Error(`${UNAUTHORIZED_DOMAIN_PREFIX}${host}`);
     }
     throw err;
   }

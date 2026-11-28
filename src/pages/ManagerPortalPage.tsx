@@ -21,6 +21,7 @@ import { useMotionNav } from '../context/MotionNavContext';
 import { formatINR } from '../lib/bookingStore';
 import { SECTIONS } from '../lib/catalog';
 import { BookingRecord, Product, SectionSlug } from '../lib/types';
+import { AuthErrorAlert } from '../components/AuthErrorAlert';
 import { CloudPublishBanner } from '../components/CloudPublishBanner';
 import { ProductImageUploadBox } from '../components/ProductImageUploadBox';
 import { ResilientImage } from '../components/ResilientImage';
@@ -180,14 +181,7 @@ export function ManagerPortalPage() {
             </div>
           )}
 
-          {authError && (
-            <div
-              role="alert"
-              className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-medium text-rose-800"
-            >
-              {authError}
-            </div>
-          )}
+          {authError && <AuthErrorAlert authError={authError} />}
 
           <div className="space-y-2.5 pt-1">
             <motion.button
