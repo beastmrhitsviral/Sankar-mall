@@ -1,31 +1,17 @@
 import { initializeApp } from 'firebase/app';
-import {
-  GoogleAuthProvider,
-  User,
-  getAuth,
-  getRedirectResult,
-  signInWithPopup,
-  signInWithRedirect,
-  signOut,
-} from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import {
   doc,
-  getDoc,
   getDocFromServer,
   getFirestore,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-export const BOOTSTRAPPED_ADMIN_EMAIL = 'mr.beast990345@gmail.com';
 export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
-export const FIREBASE_AUTH_SETTINGS_URL = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings`;
-export const UNAUTHORIZED_DOMAIN_PREFIX = 'UNAUTHORIZED_DOMAIN:';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export enum OperationType {
   CREATE = 'create',
@@ -92,59 +78,4 @@ export async function testConnection(): Promise<boolean> {
     }
     return false;
   }
-}
-
-export async function checkIsStoreAdmin(user: User | null): Promise<boolean> {
-  if (!user || !user.emailVerified) return false;
-  if (user.email?.toLowerCase() === BOOTSTRAPPED_ADMIN_EMAIL.toLowerCase()) {
-    return true;
-  }
-  try {
-    const snap = await getDoc(doc(db, 'admins', user.uid));
-    return snap.exists();
-  } catch {
-    return false;
-  }
-}
-
-export async function completeGoogleRedirectSignIn(): Promise<User | null> {
-  try {
-    const result = await getRedirectResult(auth);
-    return result?.user ?? null;
-  } catch (err) {
-    const code = (err as { code?: string })?.code;
-    if (code === 'auth/unauthorized-domain') {
-      const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
-      throw new Error(`${UNAUTHORIZED_DOMAIN_PREFIX}${host}`);
-    }
-    throw err;
-  }
-}
-
-export async function signInAdminWithGoogle(): Promise<User | null> {
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
-  } catch (err) {
-    const code = (err as { code?: string })?.code || '';
-    if (
-      code === 'auth/popup-blocked' ||
-      code === 'auth/operation-not-supported-in-this-environment'
-    ) {
-      await signInWithRedirect(auth, googleProvider);
-      return null;
-    }
-    if (code === 'auth/popup-closed-by-user') {
-      throw new Error('Google Sign-In was closed before finishing. Tap the button again to sign in.');
-    }
-    if (code === 'auth/unauthorized-domain') {
-      const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
-      throw new Error(`${UNAUTHORIZED_DOMAIN_PREFIX}${host}`);
-    }
-    throw err;
-  }
-}
-
-export async function signOutAdmin(): Promise<void> {
-  await signOut(auth);
 }

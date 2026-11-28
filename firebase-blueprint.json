@@ -69,6 +69,10 @@
           "type": "boolean",
           "description": "Featured on homepage trending grid"
         },
+        "deleted": {
+          "type": "boolean",
+          "description": "Soft-delete flag to hide removed custom products across devices"
+        },
         "image": {
           "type": "string",
           "maxLength": 250000,
@@ -88,10 +92,17 @@
           "type": "array",
           "description": "Key product bullet highlights"
         },
+        "managerPin": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 16,
+          "pattern": "^[0-9]+$",
+          "description": "Store manager portal authorization PIN"
+        },
         "authorUid": {
           "type": "string",
           "maxLength": 128,
-          "description": "Firebase Auth UID of publishing manager"
+          "description": "Optional legacy author identifier"
         },
         "createdAt": {
           "type": "string",
@@ -120,7 +131,7 @@
         "description",
         "aisleLocation",
         "highlights",
-        "authorUid",
+        "managerPin",
         "createdAt",
         "updatedAt"
       ]
@@ -148,10 +159,17 @@
           "type": "number",
           "description": "Optional overridden MRP in INR"
         },
+        "managerPin": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 16,
+          "pattern": "^[0-9]+$",
+          "description": "Store manager portal authorization PIN"
+        },
         "authorUid": {
           "type": "string",
           "maxLength": 128,
-          "description": "Firebase Auth UID of publishing manager"
+          "description": "Optional legacy author identifier"
         },
         "createdAt": {
           "type": "string",
@@ -167,7 +185,7 @@
       "required": [
         "productId",
         "inStock",
-        "authorUid",
+        "managerPin",
         "createdAt",
         "updatedAt"
       ]
@@ -195,10 +213,17 @@
           "maxLength": 80,
           "description": "Dhanbad branches opening hours"
         },
+        "managerPin": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 16,
+          "pattern": "^[0-9]+$",
+          "description": "Store manager portal authorization PIN"
+        },
         "authorUid": {
           "type": "string",
           "maxLength": 128,
-          "description": "Firebase Auth UID of publishing manager"
+          "description": "Optional legacy author identifier"
         },
         "createdAt": {
           "type": "string",
@@ -215,7 +240,7 @@
         "heroHeadline",
         "announcementBanner",
         "openingHours",
-        "authorUid",
+        "managerPin",
         "createdAt",
         "updatedAt"
       ]

@@ -7,8 +7,8 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
 import {
+  ADMIN_PIN,
   DEFAULT_SITE_SETTINGS,
   MANAGER_PIN,
   addCustomProduct as storeAddCustomProduct,
@@ -35,24 +35,13 @@ import {
   countPendingChanges,
   mergeCatalogProducts,
 } from '../lib/catalogSync';
-import {
-  BOOTSTRAPPED_ADMIN_EMAIL,
-  auth,
-  checkIsStoreAdmin,
-  completeGoogleRedirectSignIn,
-  signInAdminWithGoogle,
-  signOutAdmin,
-  testConnection,
-} from '../lib/firebase';
+import { testConnection } from '../lib/firebase';
 import {
   deleteCustomProductFromFirestore,
   publishAllPendingToFirestore,
-  publishBookingStatusToFirestore,
-  publishBookingToFirestore,
   publishCustomProductToFirestore,
   publishProductOverrideToFirestore,
   publishSiteSettingsToFirestore,
-  subscribeAdminBookings,
   subscribePublicCatalog,
 } from '../lib/firestoreCatalog';
 import {
@@ -69,10 +58,11 @@ import {
 } from '../lib/types';
 
 const MANAGER_SESSION_KEY = 'shankar_manager_unlocked_2014';
+const STAFF_SESSION_KEY = 'shankar_admin_unlocked';
 const PENDING_PUBLISH_KEY = 'shankar_mall_pending_publish_v1';
 
 export type CloudSyncStatus = 'connecting' | 'live' | 'error';
-export type PublishStatus = 'idle' | 'publishing' | 'published' | 'pending-auth' | 'error';
+export type PublishStatus = 'idle' | 'publishing' | 'published' | 'error';
 
 function loadPendingPublish(): PendingPublishState {
   if (typeof window === 'undefined') return EMPTY_PENDING_PUBLISH;
@@ -131,6 +121,9 @@ interface StoreContextValue {
   isManagerUnlocked: boolean;
   unlockManagerWithPin: (pin: string) => boolean;
   lockManager: () => void;
+  isStaffUnlocked: boolean;
+  unlockStaffWithPin: (pin: string) => boolean;
+  lockStaff: () => void;
   lastCreatedPass: StandardBooking | null;
   setLastCreatedPass: (pass: StandardBooking | null) => void;
   addToBag: (product: Product, variant?: string, quantity?: number) => void;
@@ -160,18 +153,12 @@ interface StoreContextValue {
   updateSiteSettings: (settings: SiteSettings) => SiteSettings;
   resetSiteDefaults: () => SiteSettings;
   refreshFromStorage: () => void;
-  // Cloud Publishing & Auth
-  authReady: boolean;
-  authUser: User | null;
-  isCloudAdmin: boolean;
-  authError: string | null;
+  // Live Cloud Sync
   cloudSyncStatus: CloudSyncStatus;
   publishStatus: PublishStatus;
   publishError: string | null;
   pendingCount: number;
   lastPublishedAt: number | null;
-  signInAsCloudAdmin: () => Promise<void>;
-  signOutCloudAdmin: () => Promise<void>;
   publishPendingNow: () => Promise<void>;
 }
 
@@ -207,7 +194,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const [bag, setBag] = useState<BagItem[]>(() => loadBag());
   const [localBookings, setLocalBookings] = useState<BookingRecord[]>(() => loadBookings());
-  const [cloudBookings, setCloudBookings] = useState<BookingRecord[] | null>(null);
 
   const [isSectionsDrawerOpen, setSectionsDrawerOpen] = useState(false);
   const [isBagDrawerOpen, setBagDrawerOpen] = useState(false);
@@ -218,19 +204,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
     return false;
   });
+  const [isStaffUnlocked, setStaffUnlocked] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.sessionStorage.getItem(STAFF_SESSION_KEY) === '1';
+    }
+    return false;
+  });
   const [lastCreatedPass, setLastCreatedPass] = useState<StandardBooking | null>(null);
 
-  // Firebase Auth & Sync states
-  const [authReady, setAuthReady] = useState(false);
-  const [authUser, setAuthUser] = useState<User | null>(null);
-  const [isCloudAdmin, setIsCloudAdmin] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  // Live Firestore Sync states
   const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('connecting');
   const [publishStatus, setPublishStatus] = useState<PublishStatus>('idle');
   const [publishError, setPublishError] = useState<string | null>(null);
   const [lastPublishedAt, setLastPublishedAt] = useState<number | null>(null);
 
   const pendingCount = useMemo(() => countPendingChanges(pendingPublish), [pendingPublish]);
+  const isPortalAuthorized = isManagerUnlocked || isStaffUnlocked;
 
   const updatePending = useCallback(
     (updater: (prev: PendingPublishState) => PendingPublishState) => {
@@ -301,17 +290,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return cloudSiteSettings ?? localSiteSettings ?? DEFAULT_SITE_SETTINGS;
   }, [cloudSiteSettings, inFlightSettings, localSiteSettings, pendingPublish.siteSettingsDirty]);
 
-  const bookings = useMemo(() => {
-    if (cloudBookings && cloudBookings.length > 0) {
-      const seen = new Set(cloudBookings.map((b) => b.id));
-      const merged = [...cloudBookings];
-      for (const lb of localBookings) {
-        if (!seen.has(lb.id)) merged.push(lb);
-      }
-      return merged;
-    }
-    return localBookings;
-  }, [cloudBookings, localBookings]);
+  const bookings = localBookings;
 
   const latestRef = useRef({
     pendingPublish,
@@ -319,8 +298,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     localOverrides,
     products,
     localSiteSettings,
-    authUser,
-    isCloudAdmin,
+    isPortalAuthorized,
   });
   latestRef.current = {
     pendingPublish,
@@ -328,16 +306,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     localOverrides,
     products,
     localSiteSettings,
-    authUser,
-    isCloudAdmin,
+    isPortalAuthorized,
   };
 
   const publishPendingNow = useCallback(async () => {
     const snap = latestRef.current;
-    if (!snap.authUser || !snap.isCloudAdmin) {
-      setPublishStatus('pending-auth');
-      return;
-    }
+    if (!snap.isPortalAuthorized) return;
     if (countPendingChanges(snap.pendingPublish) === 0) {
       setPublishStatus('published');
       return;
@@ -351,7 +325,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         overrides: snap.localOverrides,
         allProducts: snap.products,
         siteSettings: snap.localSiteSettings,
-        authorUid: snap.authUser.uid,
+        managerPin: MANAGER_PIN,
       });
       updatePending(() => EMPTY_PENDING_PUBLISH);
       setPublishStatus('published');
@@ -364,7 +338,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // 1. Validate Firestore connectivity & subscribe to real-time public storefront catalog
   useEffect(() => {
-    void testConnection();
+    void testConnection().then((ok) => {
+      if (ok) {
+        setCloudSyncStatus((prev) => (prev === 'connecting' ? 'live' : prev));
+      }
+    });
     const unsubscribe = subscribePublicCatalog({
       onCustomProducts: (items) => setCloudCustomProducts(items),
       onOverrides: (overrides) => setCloudOverrides(overrides),
@@ -375,78 +353,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  // 2. Complete any pending OAuth redirect sign-in and track Firebase Auth state
+  // 2. Automatically sync any queued changes as soon as portal PIN is unlocked
   useEffect(() => {
-    void completeGoogleRedirectSignIn().catch((err) => {
-      setAuthError(parseReadableError(err, 'Google Sign-In redirect failed.'));
-    });
-
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      setAuthUser(user);
-      setAuthError(null);
-      if (user) {
-        const adminOk = await checkIsStoreAdmin(user);
-        setIsCloudAdmin(adminOk);
-        if (!adminOk) {
-          setAuthError(
-            `Signed in as ${user.email || 'unknown'}. Please sign in with ${BOOTSTRAPPED_ADMIN_EMAIL} to publish changes to all phones.`
-          );
-        } else {
-          setPublishStatus((prev) =>
-            countPendingChanges(latestRef.current.pendingPublish) > 0 ? prev : 'published'
-          );
-        }
-      } else {
-        setIsCloudAdmin(false);
+    if (isPortalAuthorized) {
+      void testConnection().then((ok) => {
+        if (ok) setCloudSyncStatus('live');
+      });
+      if (pendingCount > 0) {
+        void publishPendingNow();
       }
-      setAuthReady(true);
-    });
-    return () => unsub();
-  }, []);
-
-  // 3. Automatically publish queued local edits as soon as admin signs in
-  useEffect(() => {
-    if (authReady && isCloudAdmin && authUser && pendingCount > 0) {
-      void publishPendingNow();
     }
-  }, [authReady, authUser, isCloudAdmin, pendingCount, publishPendingNow]);
-
-  // 4. Subscribe to Firestore bookings ONLY when verified admin is authenticated
-  useEffect(() => {
-    if (!authReady || !isCloudAdmin || !authUser) {
-      setCloudBookings(null);
-      return;
-    }
-    const unsub = subscribeAdminBookings(true, authUser.uid, (items) => {
-      setCloudBookings(items);
-    });
-    return () => unsub();
-  }, [authReady, authUser, isCloudAdmin]);
-
-  const signInAsCloudAdmin = useCallback(async () => {
-    setAuthError(null);
-    try {
-      const user = await signInAdminWithGoogle();
-      if (!user) return; // Redirecting
-      const adminOk = await checkIsStoreAdmin(user);
-      setIsCloudAdmin(adminOk);
-      if (!adminOk) {
-        setAuthError(
-          `Signed in as ${user.email || 'unknown'}. Please sign in with ${BOOTSTRAPPED_ADMIN_EMAIL} to publish changes to all phones.`
-        );
-      }
-    } catch (err) {
-      setAuthError(
-        parseReadableError(err, 'Google Sign-In was cancelled or blocked.')
-      );
-    }
-  }, []);
-
-  const signOutCloudAdmin = useCallback(async () => {
-    await signOutAdmin();
-    setIsCloudAdmin(false);
-    setAuthError(null);
-  }, []);
+  }, [isPortalAuthorized, pendingCount, publishPendingNow]);
 
   const refreshFromStorage = useCallback(() => {
     setLocalCustomProducts(loadCustomProducts());
@@ -468,6 +385,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         window.sessionStorage.setItem(MANAGER_SESSION_KEY, '1');
       }
+      void testConnection().then((ok) => {
+        if (ok) setCloudSyncStatus('live');
+      });
       return true;
     }
     return false;
@@ -477,6 +397,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setManagerUnlocked(false);
     if (typeof window !== 'undefined') {
       window.sessionStorage.removeItem(MANAGER_SESSION_KEY);
+    }
+  }, []);
+
+  const unlockStaffWithPin = useCallback((pin: string): boolean => {
+    if (pin.trim() === ADMIN_PIN) {
+      setStaffUnlocked(true);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(STAFF_SESSION_KEY, '1');
+      }
+      void testConnection().then((ok) => {
+        if (ok) setCloudSyncStatus('live');
+      });
+      return true;
+    }
+    return false;
+  }, []);
+
+  const lockStaff = useCallback(() => {
+    setStaffUnlocked(false);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem(STAFF_SESSION_KEY);
     }
   }, []);
 
@@ -560,12 +501,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setLocalBookings(loadBookings());
       clearBag();
       setLastCreatedPass(record);
-      if (authUser && authUser.emailVerified) {
-        void publishBookingToFirestore(record, authUser.uid).catch(() => {});
-      }
       return record;
     },
-    [authUser, bag, clearBag]
+    [bag, clearBag]
   );
 
   const submitPhotoList = useCallback(
@@ -580,61 +518,45 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }) => {
       const record = storeCreatePhotoListRequest(params);
       setLocalBookings(loadBookings());
-      if (authUser && authUser.emailVerified) {
-        void publishBookingToFirestore(record, authUser.uid).catch(() => {});
-      }
       return record;
     },
-    [authUser]
+    []
   );
 
-  const updateStatus = useCallback(
-    (bookingId: string, status: OrderStatus) => {
-      const updated = storeUpdateBookingStatus(bookingId, status);
-      setLocalBookings(updated);
-      if (isCloudAdmin && authUser) {
-        void publishBookingStatusToFirestore(bookingId, status).catch(() => {});
-      }
-    },
-    [authUser, isCloudAdmin]
-  );
+  const updateStatus = useCallback((bookingId: string, status: OrderStatus) => {
+    const updated = storeUpdateBookingStatus(bookingId, status);
+    setLocalBookings(updated);
+  }, []);
 
   const addProduct = useCallback(
     (input: Omit<Product, 'id' | 'slug'>) => {
       const created = storeAddCustomProduct(input);
       setLocalCustomProducts(loadCustomProducts());
 
-      if (isCloudAdmin && authUser) {
-        setInFlightCustomIds((prev) => Array.from(new Set([...prev, created.id])));
-        setPublishStatus('publishing');
-        setPublishError(null);
-        void publishCustomProductToFirestore(created, authUser.uid)
-          .then(() => {
-            setPublishStatus('published');
-            setLastPublishedAt(Date.now());
-          })
-          .catch((err) => {
-            updatePending((prev) => ({
-              ...prev,
-              customProductIds: Array.from(new Set([...prev.customProductIds, created.id])),
-            }));
-            setPublishStatus('error');
-            setPublishError(parseReadableError(err, 'Could not publish new product.'));
-          })
-          .finally(() => {
-            setInFlightCustomIds((prev) => prev.filter((id) => id !== created.id));
-          });
-      } else {
-        updatePending((prev) => ({
-          ...prev,
-          customProductIds: Array.from(new Set([...prev.customProductIds, created.id])),
-        }));
-        setPublishStatus('pending-auth');
-      }
+      setInFlightCustomIds((prev) => Array.from(new Set([...prev, created.id])));
+      setPublishStatus('publishing');
+      setPublishError(null);
+      void publishCustomProductToFirestore(created, MANAGER_PIN)
+        .then(() => {
+          setCloudSyncStatus('live');
+          setPublishStatus('published');
+          setLastPublishedAt(Date.now());
+        })
+        .catch((err) => {
+          updatePending((prev) => ({
+            ...prev,
+            customProductIds: Array.from(new Set([...prev.customProductIds, created.id])),
+          }));
+          setPublishStatus('error');
+          setPublishError(parseReadableError(err, 'Could not publish new product.'));
+        })
+        .finally(() => {
+          setInFlightCustomIds((prev) => prev.filter((id) => id !== created.id));
+        });
 
       return created;
     },
-    [authUser, isCloudAdmin, updatePending]
+    [updatePending]
   );
 
   const deleteProduct = useCallback(
@@ -643,34 +565,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setLocalCustomProducts(loadCustomProducts());
       setLocalOverrides(loadProductOverrides());
 
-      if (isCloudAdmin && authUser) {
-        setInFlightDeletedIds((prev) => Array.from(new Set([...prev, productId])));
-        setPublishStatus('publishing');
-        setPublishError(null);
-        void deleteCustomProductFromFirestore(productId)
-          .then(() => {
-            setPublishStatus('published');
-            setLastPublishedAt(Date.now());
-          })
-          .catch((err) => {
-            setPublishStatus('error');
-            setPublishError(parseReadableError(err, 'Could not delete product from live store.'));
-          })
-          .finally(() => {
-            setInFlightDeletedIds((prev) => prev.filter((id) => id !== productId));
-          });
-      } else {
-        updatePending((prev) => ({
-          ...prev,
-          customProductIds: prev.customProductIds.filter((id) => id !== productId),
-          deletedCustomProductIds: Array.from(
-            new Set([...prev.deletedCustomProductIds, productId])
-          ),
-        }));
-        setPublishStatus('pending-auth');
-      }
+      setInFlightDeletedIds((prev) => Array.from(new Set([...prev, productId])));
+      setPublishStatus('publishing');
+      setPublishError(null);
+      void deleteCustomProductFromFirestore(productId, MANAGER_PIN)
+        .then(() => {
+          setCloudSyncStatus('live');
+          setPublishStatus('published');
+          setLastPublishedAt(Date.now());
+        })
+        .catch((err) => {
+          updatePending((prev) => ({
+            ...prev,
+            customProductIds: prev.customProductIds.filter((id) => id !== productId),
+            deletedCustomProductIds: Array.from(
+              new Set([...prev.deletedCustomProductIds, productId])
+            ),
+          }));
+          setPublishStatus('error');
+          setPublishError(parseReadableError(err, 'Could not delete product from live store.'));
+        })
+        .finally(() => {
+          setInFlightDeletedIds((prev) => prev.filter((id) => id !== productId));
+        });
     },
-    [authUser, isCloudAdmin, updatePending]
+    [updatePending]
   );
 
   const toggleStock = useCallback(
@@ -681,40 +600,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const currentProduct = products.find((p) => p.id === productId);
       const override = nextOverrides[productId] || { inStock };
 
-      if (isCloudAdmin && authUser) {
-        setInFlightOverrideIds((prev) => Array.from(new Set([...prev, productId])));
-        setPublishStatus('publishing');
-        setPublishError(null);
-        void publishProductOverrideToFirestore(
-          productId,
-          override,
-          currentProduct?.inStock ?? inStock,
-          authUser.uid
-        )
-          .then(() => {
-            setPublishStatus('published');
-            setLastPublishedAt(Date.now());
-          })
-          .catch((err) => {
-            updatePending((prev) => ({
-              ...prev,
-              overrideProductIds: Array.from(new Set([...prev.overrideProductIds, productId])),
-            }));
-            setPublishStatus('error');
-            setPublishError(parseReadableError(err, 'Could not publish stock status.'));
-          })
-          .finally(() => {
-            setInFlightOverrideIds((prev) => prev.filter((id) => id !== productId));
-          });
-      } else {
-        updatePending((prev) => ({
-          ...prev,
-          overrideProductIds: Array.from(new Set([...prev.overrideProductIds, productId])),
-        }));
-        setPublishStatus('pending-auth');
-      }
+      setInFlightOverrideIds((prev) => Array.from(new Set([...prev, productId])));
+      setPublishStatus('publishing');
+      setPublishError(null);
+      void publishProductOverrideToFirestore(
+        productId,
+        override,
+        currentProduct?.inStock ?? inStock,
+        MANAGER_PIN
+      )
+        .then(() => {
+          setCloudSyncStatus('live');
+          setPublishStatus('published');
+          setLastPublishedAt(Date.now());
+        })
+        .catch((err) => {
+          updatePending((prev) => ({
+            ...prev,
+            overrideProductIds: Array.from(new Set([...prev.overrideProductIds, productId])),
+          }));
+          setPublishStatus('error');
+          setPublishError(parseReadableError(err, 'Could not publish stock status.'));
+        })
+        .finally(() => {
+          setInFlightOverrideIds((prev) => prev.filter((id) => id !== productId));
+        });
     },
-    [authUser, isCloudAdmin, products, updatePending]
+    [products, updatePending]
   );
 
   const editProductPrice = useCallback(
@@ -729,40 +641,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         mrp,
       };
 
-      if (isCloudAdmin && authUser) {
-        setInFlightOverrideIds((prev) => Array.from(new Set([...prev, productId])));
-        setPublishStatus('publishing');
-        setPublishError(null);
-        void publishProductOverrideToFirestore(
-          productId,
-          override,
-          currentProduct?.inStock ?? true,
-          authUser.uid
-        )
-          .then(() => {
-            setPublishStatus('published');
-            setLastPublishedAt(Date.now());
-          })
-          .catch((err) => {
-            updatePending((prev) => ({
-              ...prev,
-              overrideProductIds: Array.from(new Set([...prev.overrideProductIds, productId])),
-            }));
-            setPublishStatus('error');
-            setPublishError(parseReadableError(err, 'Could not publish price update.'));
-          })
-          .finally(() => {
-            setInFlightOverrideIds((prev) => prev.filter((id) => id !== productId));
-          });
-      } else {
-        updatePending((prev) => ({
-          ...prev,
-          overrideProductIds: Array.from(new Set([...prev.overrideProductIds, productId])),
-        }));
-        setPublishStatus('pending-auth');
-      }
+      setInFlightOverrideIds((prev) => Array.from(new Set([...prev, productId])));
+      setPublishStatus('publishing');
+      setPublishError(null);
+      void publishProductOverrideToFirestore(
+        productId,
+        override,
+        currentProduct?.inStock ?? true,
+        MANAGER_PIN
+      )
+        .then(() => {
+          setCloudSyncStatus('live');
+          setPublishStatus('published');
+          setLastPublishedAt(Date.now());
+        })
+        .catch((err) => {
+          updatePending((prev) => ({
+            ...prev,
+            overrideProductIds: Array.from(new Set([...prev.overrideProductIds, productId])),
+          }));
+          setPublishStatus('error');
+          setPublishError(parseReadableError(err, 'Could not publish price update.'));
+        })
+        .finally(() => {
+          setInFlightOverrideIds((prev) => prev.filter((id) => id !== productId));
+        });
     },
-    [authUser, isCloudAdmin, products, updatePending]
+    [products, updatePending]
   );
 
   const updateSiteSettings = useCallback(
@@ -770,56 +675,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const saved = storeSaveSiteSettings(settings);
       setLocalSiteSettings(saved);
 
-      if (isCloudAdmin && authUser) {
-        setInFlightSettings(true);
-        setPublishStatus('publishing');
-        setPublishError(null);
-        void publishSiteSettingsToFirestore(saved, authUser.uid)
-          .then(() => {
-            setPublishStatus('published');
-            setLastPublishedAt(Date.now());
-          })
-          .catch((err) => {
-            updatePending((prev) => ({ ...prev, siteSettingsDirty: true }));
-            setPublishStatus('error');
-            setPublishError(parseReadableError(err, 'Could not publish storefront text.'));
-          })
-          .finally(() => {
-            setInFlightSettings(false);
-          });
-      } else {
-        updatePending((prev) => ({ ...prev, siteSettingsDirty: true }));
-        setPublishStatus('pending-auth');
-      }
+      setInFlightSettings(true);
+      setPublishStatus('publishing');
+      setPublishError(null);
+      void publishSiteSettingsToFirestore(saved, MANAGER_PIN)
+        .then(() => {
+          setCloudSyncStatus('live');
+          setPublishStatus('published');
+          setLastPublishedAt(Date.now());
+        })
+        .catch((err) => {
+          updatePending((prev) => ({ ...prev, siteSettingsDirty: true }));
+          setPublishStatus('error');
+          setPublishError(parseReadableError(err, 'Could not publish storefront text.'));
+        })
+        .finally(() => {
+          setInFlightSettings(false);
+        });
 
       return saved;
     },
-    [authUser, isCloudAdmin, updatePending]
+    [updatePending]
   );
 
   const resetSiteDefaults = useCallback(() => {
     const defaults = storeResetSiteSettings();
     setLocalSiteSettings(defaults);
 
-    if (isCloudAdmin && authUser) {
-      setInFlightSettings(true);
-      setPublishStatus('publishing');
-      void publishSiteSettingsToFirestore(defaults, authUser.uid)
-        .then(() => {
-          setPublishStatus('published');
-          setLastPublishedAt(Date.now());
-        })
-        .catch(() => {})
-        .finally(() => {
-          setInFlightSettings(false);
-        });
-    } else {
-      updatePending((prev) => ({ ...prev, siteSettingsDirty: true }));
-      setPublishStatus('pending-auth');
-    }
+    setInFlightSettings(true);
+    setPublishStatus('publishing');
+    setPublishError(null);
+    void publishSiteSettingsToFirestore(defaults, MANAGER_PIN)
+      .then(() => {
+        setCloudSyncStatus('live');
+        setPublishStatus('published');
+        setLastPublishedAt(Date.now());
+      })
+      .catch((err) => {
+        updatePending((prev) => ({ ...prev, siteSettingsDirty: true }));
+        setPublishStatus('error');
+        setPublishError(parseReadableError(err, 'Could not publish default storefront text.'));
+      })
+      .finally(() => {
+        setInFlightSettings(false);
+      });
 
     return defaults;
-  }, [authUser, isCloudAdmin, updatePending]);
+  }, [updatePending]);
 
   const bagSummary = useMemo(() => calculateBagSummary(bag), [bag]);
 
@@ -839,6 +741,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       isManagerUnlocked,
       unlockManagerWithPin,
       lockManager,
+      isStaffUnlocked,
+      unlockStaffWithPin,
+      lockStaff,
       lastCreatedPass,
       setLastCreatedPass,
       addToBag,
@@ -855,17 +760,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateSiteSettings,
       resetSiteDefaults,
       refreshFromStorage,
-      authReady,
-      authUser,
-      isCloudAdmin,
-      authError,
       cloudSyncStatus,
       publishStatus,
       publishError,
       pendingCount,
       lastPublishedAt,
-      signInAsCloudAdmin,
-      signOutCloudAdmin,
       publishPendingNow,
     }),
     [
@@ -880,6 +779,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       isManagerUnlocked,
       unlockManagerWithPin,
       lockManager,
+      isStaffUnlocked,
+      unlockStaffWithPin,
+      lockStaff,
       lastCreatedPass,
       addToBag,
       updateBagQuantity,
@@ -895,17 +797,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateSiteSettings,
       resetSiteDefaults,
       refreshFromStorage,
-      authReady,
-      authUser,
-      isCloudAdmin,
-      authError,
       cloudSyncStatus,
       publishStatus,
       publishError,
       pendingCount,
       lastPublishedAt,
-      signInAsCloudAdmin,
-      signOutCloudAdmin,
       publishPendingNow,
     ]
   );

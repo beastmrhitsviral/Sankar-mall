@@ -28,6 +28,9 @@ export const BLUEPRINT_LIMITS = {
   heroHeadlineMaxLength: 180,
   announcementMaxLength: 180,
   openingHoursMaxLength: 80,
+  managerPinMinLength: 4,
+  managerPinMaxLength: 16,
+  managerPinPattern: /^[0-9]+$/,
 } as const;
 
 export interface PendingPublishState {
@@ -98,6 +101,11 @@ function clampString(val: string | undefined, fallback: string, maxLen: number):
   return trimmed.slice(0, maxLen);
 }
 
+export function sanitizeManagerPin(rawPin: string): string {
+  const digitsOnly = rawPin.replace(/[^0-9]/g, '').slice(0, BLUEPRINT_LIMITS.managerPinMaxLength);
+  return digitsOnly.length >= BLUEPRINT_LIMITS.managerPinMinLength ? digitsOnly : '0000';
+}
+
 export function sanitizeDocumentId(rawId: string): string {
   const cleaned = rawId.replace(/[^a-zA-Z0-9_\-]/g, '-').slice(0, BLUEPRINT_LIMITS.idMaxLength);
   return cleaned || `item-${Date.now()}`;
@@ -105,7 +113,7 @@ export function sanitizeDocumentId(rawId: string): string {
 
 export function sanitizeCustomProductPayload(
   product: Product,
-  authorUid: string
+  managerPin: string
 ): {
   id: string;
   slug: string;
@@ -118,11 +126,12 @@ export function sanitizeCustomProductPayload(
   variants: string[];
   inStock: boolean;
   trending: boolean;
+  deleted: boolean;
   image: string;
   description: string;
   aisleLocation: string;
   highlights: string[];
-  authorUid: string;
+  managerPin: string;
 } {
   const id = sanitizeDocumentId(product.id);
   const sectionSlug = VALID_SECTION_SLUGS.includes(product.sectionSlug)
@@ -163,6 +172,7 @@ export function sanitizeCustomProductPayload(
     variants,
     inStock: Boolean(product.inStock),
     trending: Boolean(product.trending ?? true),
+    deleted: false,
     image: safeImage,
     description: clampString(
       product.description,
@@ -175,7 +185,7 @@ export function sanitizeCustomProductPayload(
       BLUEPRINT_LIMITS.aisleMaxLength
     ),
     highlights,
-    authorUid: clampString(authorUid, 'admin', BLUEPRINT_LIMITS.idMaxLength),
+    managerPin: sanitizeManagerPin(managerPin),
   };
 }
 
@@ -183,13 +193,13 @@ export function sanitizeProductOverridePayload(
   productId: string,
   override: ProductOverride,
   fallbackInStock: boolean,
-  authorUid: string
+  managerPin: string
 ): {
   productId: string;
   inStock: boolean;
   price?: number;
   mrp?: number;
-  authorUid: string;
+  managerPin: string;
 } {
   const cleanId = sanitizeDocumentId(productId);
   const inStock = typeof override.inStock === 'boolean' ? override.inStock : fallbackInStock;
@@ -198,11 +208,11 @@ export function sanitizeProductOverridePayload(
     inStock: boolean;
     price?: number;
     mrp?: number;
-    authorUid: string;
+    managerPin: string;
   } = {
     productId: cleanId,
     inStock,
-    authorUid: clampString(authorUid, 'admin', BLUEPRINT_LIMITS.idMaxLength),
+    managerPin: sanitizeManagerPin(managerPin),
   };
 
   if (typeof override.price === 'number' && Number.isFinite(override.price) && override.price > 0) {
@@ -217,8 +227,8 @@ export function sanitizeProductOverridePayload(
 
 export function sanitizeSiteSettingsPayload(
   settings: SiteSettings,
-  authorUid: string
-): SiteSettings & { authorUid: string } {
+  managerPin: string
+): SiteSettings & { managerPin: string } {
   return {
     heroHeadline: clampString(
       settings.heroHeadline,
@@ -235,6 +245,6 @@ export function sanitizeSiteSettingsPayload(
       DEFAULT_SITE_SETTINGS.openingHours,
       BLUEPRINT_LIMITS.openingHoursMaxLength
     ),
-    authorUid: clampString(authorUid, 'admin', BLUEPRINT_LIMITS.idMaxLength),
+    managerPin: sanitizeManagerPin(managerPin),
   };
 }

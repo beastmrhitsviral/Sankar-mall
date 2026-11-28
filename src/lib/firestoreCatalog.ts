@@ -1,32 +1,28 @@
 import {
   Unsubscribe,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   onSnapshot,
-  orderBy,
-  query,
   serverTimestamp,
   setDoc,
   updateDoc,
-  where,
 } from 'firebase/firestore';
 import {
   PendingPublishState,
   sanitizeCustomProductPayload,
   sanitizeDocumentId,
+  sanitizeManagerPin,
   sanitizeProductOverridePayload,
   sanitizeSiteSettingsPayload,
 } from './catalogSync';
 import { OperationType, db, handleFirestoreError } from './firebase';
-import { BookingRecord, OrderStatus, Product, ProductOverride, SiteSettings } from './types';
+import { Product, ProductOverride, SiteSettings } from './types';
 
 const CUSTOM_PRODUCTS_COL = 'custom_products';
 const PRODUCT_OVERRIDES_COL = 'product_overrides';
 const SITE_SETTINGS_COL = 'site_settings';
 const SITE_SETTINGS_DOC_ID = 'storefront';
-const BOOKINGS_COL = 'bookings';
 
 export interface PublicCatalogSnapshot {
   customProducts: Product[];
@@ -47,6 +43,7 @@ export function subscribePublicCatalog(callbacks: {
       const items: Product[] = [];
       snapshot.forEach((docSnap) => {
         const d = docSnap.data();
+        if (d && d.deleted === true) return;
         if (d && typeof d.name === 'string' && typeof d.price === 'number') {
           items.push({
             id: String(d.id || docSnap.id),
@@ -67,7 +64,6 @@ export function subscribePublicCatalog(callbacks: {
           });
         }
       });
-      // Sort newest custom products first by numeric suffix if present
       items.sort((a, b) => b.id.localeCompare(a.id));
       callbacks.onCustomProducts(items);
       callbacks.onConnected?.();
@@ -145,9 +141,9 @@ export function subscribePublicCatalog(callbacks: {
 
 export async function publishCustomProductToFirestore(
   product: Product,
-  authorUid: string
+  managerPin: string
 ): Promise<void> {
-  const payload = sanitizeCustomProductPayload(product, authorUid);
+  const payload = sanitizeCustomProductPayload(product, managerPin);
   const path = `${CUSTOM_PRODUCTS_COL}/${payload.id}`;
   const ref = doc(db, CUSTOM_PRODUCTS_COL, payload.id);
 
@@ -164,10 +160,12 @@ export async function publishCustomProductToFirestore(
         variants: payload.variants,
         inStock: payload.inStock,
         trending: payload.trending,
+        deleted: false,
         image: payload.image,
         description: payload.description,
         aisleLocation: payload.aisleLocation,
         highlights: payload.highlights,
+        managerPin: payload.managerPin,
         updatedAt: serverTimestamp(),
       });
     } else {
@@ -182,18 +180,24 @@ export async function publishCustomProductToFirestore(
   }
 }
 
-export async function deleteCustomProductFromFirestore(productId: string): Promise<void> {
+export async function deleteCustomProductFromFirestore(
+  productId: string,
+  managerPin: string
+): Promise<void> {
   const cleanId = sanitizeDocumentId(productId);
+  const cleanPin = sanitizeManagerPin(managerPin);
   const path = `${CUSTOM_PRODUCTS_COL}/${cleanId}`;
+  const ref = doc(db, CUSTOM_PRODUCTS_COL, cleanId);
   try {
-    await deleteDoc(doc(db, CUSTOM_PRODUCTS_COL, cleanId));
-    try {
-      await deleteDoc(doc(db, PRODUCT_OVERRIDES_COL, cleanId));
-    } catch {
-      // Override doc might not exist
-    }
+    const existing = await getDoc(ref);
+    if (!existing.exists()) return;
+    await updateDoc(ref, {
+      deleted: true,
+      managerPin: cleanPin,
+      updatedAt: serverTimestamp(),
+    });
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    handleFirestoreError(error, OperationType.UPDATE, path);
   }
 }
 
@@ -201,13 +205,13 @@ export async function publishProductOverrideToFirestore(
   productId: string,
   override: ProductOverride,
   fallbackInStock: boolean,
-  authorUid: string
+  managerPin: string
 ): Promise<void> {
   const payload = sanitizeProductOverridePayload(
     productId,
     override,
     fallbackInStock,
-    authorUid
+    managerPin
   );
   const path = `${PRODUCT_OVERRIDES_COL}/${payload.productId}`;
   const ref = doc(db, PRODUCT_OVERRIDES_COL, payload.productId);
@@ -217,6 +221,7 @@ export async function publishProductOverrideToFirestore(
     if (existing.exists()) {
       const updatePatch: Record<string, unknown> = {
         inStock: payload.inStock,
+        managerPin: payload.managerPin,
         updatedAt: serverTimestamp(),
       };
       if (typeof payload.price === 'number') updatePatch.price = payload.price;
@@ -236,9 +241,9 @@ export async function publishProductOverrideToFirestore(
 
 export async function publishSiteSettingsToFirestore(
   settings: SiteSettings,
-  authorUid: string
+  managerPin: string
 ): Promise<void> {
-  const payload = sanitizeSiteSettingsPayload(settings, authorUid);
+  const payload = sanitizeSiteSettingsPayload(settings, managerPin);
   const path = `${SITE_SETTINGS_COL}/${SITE_SETTINGS_DOC_ID}`;
   const ref = doc(db, SITE_SETTINGS_COL, SITE_SETTINGS_DOC_ID);
 
@@ -249,6 +254,7 @@ export async function publishSiteSettingsToFirestore(
         heroHeadline: payload.heroHeadline,
         announcementBanner: payload.announcementBanner,
         openingHours: payload.openingHours,
+        managerPin: payload.managerPin,
         updatedAt: serverTimestamp(),
       });
     } else {
@@ -269,19 +275,19 @@ export async function publishAllPendingToFirestore(params: {
   overrides: Record<string, ProductOverride>;
   allProducts: Product[];
   siteSettings: SiteSettings;
-  authorUid: string;
+  managerPin: string;
 }): Promise<void> {
-  const { pending, customProducts, overrides, allProducts, siteSettings, authorUid } = params;
+  const { pending, customProducts, overrides, allProducts, siteSettings, managerPin } = params;
 
   for (const id of pending.customProductIds) {
     const product = customProducts.find((p) => p.id === id);
     if (product) {
-      await publishCustomProductToFirestore(product, authorUid);
+      await publishCustomProductToFirestore(product, managerPin);
     }
   }
 
   for (const id of pending.deletedCustomProductIds) {
-    await deleteCustomProductFromFirestore(id);
+    await deleteCustomProductFromFirestore(id, managerPin);
   }
 
   for (const id of pending.overrideProductIds) {
@@ -292,119 +298,12 @@ export async function publishAllPendingToFirestore(params: {
         id,
         ov,
         currentProduct?.inStock ?? true,
-        authorUid
+        managerPin
       );
     }
   }
 
   if (pending.siteSettingsDirty) {
-    await publishSiteSettingsToFirestore(siteSettings, authorUid);
-  }
-}
-
-export function subscribeAdminBookings(
-  isAdmin: boolean,
-  uid: string | null,
-  onBookings: (items: BookingRecord[]) => void,
-  onError?: (err: Error) => void
-): Unsubscribe {
-  if (!uid || !isAdmin) {
-    return () => {};
-  }
-
-  const q = query(collection(db, BOOKINGS_COL), orderBy('createdAt', 'desc'));
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const list: BookingRecord[] = [];
-      snapshot.forEach((docSnap) => {
-        const d = docSnap.data();
-        if (!d || typeof d.id !== 'string') return;
-        const createdAtIso =
-          d.createdAt && typeof d.createdAt.toDate === 'function'
-            ? d.createdAt.toDate().toISOString()
-            : new Date().toISOString();
-
-        if (d.kind === 'photo-list') {
-          list.push({
-            id: d.id,
-            kind: 'photo-list',
-            customerName: String(d.customerName || ''),
-            phone: String(d.phone || ''),
-            branch: d.branch,
-            pickupSlot: d.pickupSlot,
-            paymentMode: d.paymentMode,
-            listText: String(d.listText || ''),
-            photoDataUrl: typeof d.photoDataUrl === 'string' ? d.photoDataUrl : undefined,
-            photoFileName: typeof d.photoFileName === 'string' ? d.photoFileName : undefined,
-            estimatedItemsCount:
-              typeof d.estimatedItemsCount === 'number' ? d.estimatedItemsCount : undefined,
-            status: d.status as OrderStatus,
-            createdAt: createdAtIso,
-          });
-        } else {
-          list.push({
-            id: d.id,
-            kind: 'standard',
-            customerName: String(d.customerName || ''),
-            phone: String(d.phone || ''),
-            branch: d.branch,
-            pickupSlot: d.pickupSlot,
-            paymentMode: d.paymentMode,
-            items: Array.isArray(d.items) ? d.items : [],
-            subtotal: Number(d.subtotal || 0),
-            totalMrp: Number(d.totalMrp || 0),
-            savings: Number(d.savings || 0),
-            status: d.status as OrderStatus,
-            createdAt: createdAtIso,
-          });
-        }
-      });
-      onBookings(list);
-    },
-    (error) => {
-      try {
-        handleFirestoreError(error, OperationType.LIST, BOOKINGS_COL);
-      } catch (wrapped) {
-        onError?.(wrapped instanceof Error ? wrapped : new Error(String(wrapped)));
-      }
-    }
-  );
-}
-
-export async function publishBookingToFirestore(
-  booking: BookingRecord,
-  ownerUid: string
-): Promise<void> {
-  const docId = sanitizeDocumentId(booking.id.replace(/^#/, ''));
-  const path = `${BOOKINGS_COL}/${docId}`;
-  try {
-    await setDoc(doc(db, BOOKINGS_COL, docId), {
-      ...booking,
-      ownerUid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
-  }
-}
-
-export async function publishBookingStatusToFirestore(
-  bookingId: string,
-  status: OrderStatus
-): Promise<void> {
-  const docId = sanitizeDocumentId(bookingId.replace(/^#/, ''));
-  const path = `${BOOKINGS_COL}/${docId}`;
-  try {
-    const ref = doc(db, BOOKINGS_COL, docId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return;
-    await updateDoc(ref, {
-      status,
-      updatedAt: serverTimestamp(),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
+    await publishSiteSettingsToFirestore(siteSettings, managerPin);
   }
 }

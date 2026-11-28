@@ -21,7 +21,6 @@ import { useMotionNav } from '../context/MotionNavContext';
 import { formatINR } from '../lib/bookingStore';
 import { SECTIONS } from '../lib/catalog';
 import { BookingRecord, Product, SectionSlug } from '../lib/types';
-import { AuthErrorAlert } from '../components/AuthErrorAlert';
 import { CloudPublishBanner } from '../components/CloudPublishBanner';
 import { ProductImageUploadBox } from '../components/ProductImageUploadBox';
 import { ResilientImage } from '../components/ResilientImage';
@@ -40,18 +39,12 @@ export function ManagerPortalPage() {
     editProductPrice,
     addProduct,
     deleteProduct,
-    isCloudAdmin,
-    authReady,
-    authError,
-    pendingCount,
-    signInAsCloudAdmin,
     updateSiteSettings,
     resetSiteDefaults,
     updateStatus,
   } = useStore();
   const { animatedNavigate } = useMotionNav();
 
-  const [allowOfflinePreview, setAllowOfflinePreview] = useState(false);
   const [activeTab, setActiveTab] = useState<PortalTab>('inventory');
   const [searchQuery, setSearchQuery] = useState('');
   const [sectionFilter, setSectionFilter] = useState<'all' | SectionSlug>('all');
@@ -109,7 +102,7 @@ export function ManagerPortalPage() {
     [bookings]
   );
 
-  // Gate unauthorized access if someone navigates to /manager without PIN 2014
+  // Gate unauthorized access until Manager PIN is verified
   if (!isManagerUnlocked) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6">
@@ -142,64 +135,6 @@ export function ManagerPortalPage() {
             >
               Exit to Website
             </motion.button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Step 2: Ensure manager connects store Google account so changes publish across all phones
-  if (authReady && !isCloudAdmin && !allowOfflinePreview) {
-    return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center p-4 sm:p-6">
-        <div className="max-w-md w-full rounded-3xl bg-white border border-slate-200 shadow-lg p-7 sm:p-8 space-y-5">
-          <div className="flex items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold">
-              Step 2 · Live Store Sync
-            </span>
-            <button
-              type="button"
-              onClick={() => animatedNavigate('/')}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-900 cursor-pointer"
-            >
-              Exit
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            <h1 className="font-display text-2xl font-bold text-slate-900 leading-tight">
-              Sign in with Google to Publish Changes
-            </h1>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              Sign in with your store Google account (<span className="font-semibold text-slate-900">mr.beast990345@gmail.com</span>) so added products, stock toggles, and price updates appear immediately on every other phone.
-            </p>
-          </div>
-
-          {pendingCount > 0 && (
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-900">
-              You have {pendingCount} unsaved local {pendingCount === 1 ? 'change' : 'changes'} ready to publish as soon as you sign in.
-            </div>
-          )}
-
-          {authError && <AuthErrorAlert authError={authError} />}
-
-          <div className="space-y-2.5 pt-1">
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.96 }}
-              onClick={() => void signInAsCloudAdmin()}
-              className="w-full py-3.5 px-4 rounded-xl bg-[#1E3A8A] hover:bg-[#172E6E] text-white text-sm font-semibold shadow-sm cursor-pointer transition-colors"
-            >
-              Connect Google Account &amp; Manage Store
-            </motion.button>
-
-            <button
-              type="button"
-              onClick={() => setAllowOfflinePreview(true)}
-              className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-600 cursor-pointer transition-colors"
-            >
-              Continue in This-Device Draft Mode Only
-            </button>
           </div>
         </div>
       </div>
@@ -245,11 +180,7 @@ export function ManagerPortalPage() {
       highlights: ['Ready for 2-hour pickup', 'Pay at Express Counter'],
     });
 
-    setNewAddedMsg(
-      isCloudAdmin
-        ? `Published "${created.name}" to ${sectionMeta.name} for all visitors.`
-        : `Saved "${created.name}" locally. Sign in with Google above to publish to all visitors.`
-    );
+    setNewAddedMsg(`Published "${created.name}" to ${sectionMeta.name} for all visitors.`);
     setNewName('');
     setNewBrand('');
     setNewPrice('');
@@ -455,9 +386,7 @@ export function ManagerPortalPage() {
                     Add New Product / Food Item
                   </h2>
                   <p className="text-xs text-slate-500">
-                    {isCloudAdmin
-                      ? 'Publishes live to Firestore so every phone and visitor sees it immediately.'
-                      : 'Draft mode: connect Google account above to publish to other phones.'}
+                    Publishes live to Firestore so every phone and visitor sees it immediately.
                   </p>
                 </div>
 

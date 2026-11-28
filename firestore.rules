@@ -29,10 +29,14 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isVerifiedUser() && (
-        request.auth.token.email.lower() == 'mr.beast990345@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-      );
+      return isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function hasValidManagerPin(data) {
+      return data.managerPin is string
+        && data.managerPin.size() >= 4
+        && data.managerPin.size() <= 16
+        && data.managerPin == '2014';
     }
 
     function isValidSectionSlug(slug) {
@@ -52,12 +56,13 @@ service cloud.firestore {
       return data.keys().hasAll([
           'id', 'slug', 'name', 'brand', 'sectionSlug', 'price', 'mrp',
           'unit', 'variants', 'inStock', 'trending', 'image', 'description',
-          'aisleLocation', 'highlights', 'authorUid', 'createdAt', 'updatedAt'
+          'aisleLocation', 'highlights', 'managerPin', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
           'id', 'slug', 'name', 'brand', 'sectionSlug', 'price', 'mrp',
-          'unit', 'variants', 'inStock', 'trending', 'image', 'description',
-          'aisleLocation', 'highlights', 'authorUid', 'createdAt', 'updatedAt'
+          'unit', 'variants', 'inStock', 'trending', 'deleted', 'image',
+          'description', 'aisleLocation', 'highlights', 'managerPin',
+          'authorUid', 'createdAt', 'updatedAt'
         ])
         && data.id is string && data.id == productId && isValidId(data.id)
         && data.slug is string && data.slug.size() >= 1 && data.slug.size() <= 160
@@ -71,25 +76,28 @@ service cloud.firestore {
         && data.variants[0] is string && data.variants[0].size() >= 1 && data.variants[0].size() <= 60
         && data.inStock is bool
         && data.trending is bool
+        && (!('deleted' in data) || data.deleted is bool)
         && data.image is string && data.image.size() >= 1 && data.image.size() <= 250000
         && data.description is string && data.description.size() <= 600
         && data.aisleLocation is string && data.aisleLocation.size() <= 120
         && data.highlights is list && data.highlights.size() >= 1 && data.highlights.size() <= 8
         && data.highlights[0] is string && data.highlights[0].size() >= 1 && data.highlights[0].size() <= 120
-        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128
+        && data.managerPin is string && data.managerPin.size() >= 4 && data.managerPin.size() <= 16 && data.managerPin.matches('^[0-9]+$')
+        && (!('authorUid' in data) || (data.authorUid is string && data.authorUid.size() <= 128))
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
 
     function isValidProductOverride(data, productId) {
-      return data.keys().hasAll(['productId', 'inStock', 'authorUid', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['productId', 'inStock', 'price', 'mrp', 'authorUid', 'createdAt', 'updatedAt'])
+      return data.keys().hasAll(['productId', 'inStock', 'managerPin', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['productId', 'inStock', 'price', 'mrp', 'managerPin', 'authorUid', 'createdAt', 'updatedAt'])
         && data.productId is string && data.productId == productId && isValidId(data.productId)
         && data.inStock is bool
         && (!('price' in data) || (data.price is number && data.price > 0 && data.price <= 1000000))
         && (!('mrp' in data) || (data.mrp is number && data.mrp > 0 && data.mrp <= 1000000))
         && (!('price' in data && 'mrp' in data) || data.mrp >= data.price)
-        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128
+        && data.managerPin is string && data.managerPin.size() >= 4 && data.managerPin.size() <= 16 && data.managerPin.matches('^[0-9]+$')
+        && (!('authorUid' in data) || (data.authorUid is string && data.authorUid.size() <= 128))
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -97,16 +105,17 @@ service cloud.firestore {
     function isValidSiteSettings(data) {
       return data.keys().hasAll([
           'heroHeadline', 'announcementBanner', 'openingHours',
-          'authorUid', 'createdAt', 'updatedAt'
+          'managerPin', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
           'heroHeadline', 'announcementBanner', 'openingHours',
-          'authorUid', 'createdAt', 'updatedAt'
+          'managerPin', 'authorUid', 'createdAt', 'updatedAt'
         ])
         && data.heroHeadline is string && data.heroHeadline.size() >= 1 && data.heroHeadline.size() <= 180
         && data.announcementBanner is string && data.announcementBanner.size() >= 1 && data.announcementBanner.size() <= 180
         && data.openingHours is string && data.openingHours.size() >= 1 && data.openingHours.size() <= 80
-        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128
+        && data.managerPin is string && data.managerPin.size() >= 4 && data.managerPin.size() <= 16 && data.managerPin.matches('^[0-9]+$')
+        && (!('authorUid' in data) || (data.authorUid is string && data.authorUid.size() <= 128))
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -162,24 +171,23 @@ service cloud.firestore {
     match /custom_products/{productId} {
       allow get: if isValidId(productId);
       allow list: if true;
-      allow create: if isAdmin()
+      allow create: if hasValidManagerPin(incoming())
         && isValidId(productId)
         && isValidCustomProduct(incoming(), productId)
-        && incoming().authorUid == request.auth.uid
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
-      allow update: if isAdmin()
+      allow update: if hasValidManagerPin(incoming())
         && isValidId(productId)
         && isValidCustomProduct(incoming(), productId)
         && incoming().id == existing().id
         && incoming().slug == existing().slug
-        && incoming().authorUid == existing().authorUid
+        && (!('authorUid' in existing()) || incoming().authorUid == existing().authorUid)
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly([
           'name', 'brand', 'sectionSlug', 'price', 'mrp', 'unit',
-          'variants', 'inStock', 'trending', 'image', 'description',
-          'aisleLocation', 'highlights', 'updatedAt'
+          'variants', 'inStock', 'trending', 'deleted', 'image', 'description',
+          'aisleLocation', 'highlights', 'managerPin', 'updatedAt'
         ]);
       allow delete: if isAdmin() && isValidId(productId);
     }
@@ -188,21 +196,20 @@ service cloud.firestore {
     match /product_overrides/{productId} {
       allow get: if isValidId(productId);
       allow list: if true;
-      allow create: if isAdmin()
+      allow create: if hasValidManagerPin(incoming())
         && isValidId(productId)
         && isValidProductOverride(incoming(), productId)
-        && incoming().authorUid == request.auth.uid
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
-      allow update: if isAdmin()
+      allow update: if hasValidManagerPin(incoming())
         && isValidId(productId)
         && isValidProductOverride(incoming(), productId)
         && incoming().productId == existing().productId
-        && incoming().authorUid == existing().authorUid
+        && (!('authorUid' in existing()) || incoming().authorUid == existing().authorUid)
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly([
-          'inStock', 'price', 'mrp', 'updatedAt'
+          'inStock', 'price', 'mrp', 'managerPin', 'updatedAt'
         ]);
       allow delete: if isAdmin() && isValidId(productId);
     }
@@ -211,20 +218,19 @@ service cloud.firestore {
     match /site_settings/{settingId} {
       allow get: if isValidId(settingId);
       allow list: if true;
-      allow create: if isAdmin()
+      allow create: if hasValidManagerPin(incoming())
         && isValidId(settingId)
         && isValidSiteSettings(incoming())
-        && incoming().authorUid == request.auth.uid
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
-      allow update: if isAdmin()
+      allow update: if hasValidManagerPin(incoming())
         && isValidId(settingId)
         && isValidSiteSettings(incoming())
-        && incoming().authorUid == existing().authorUid
+        && (!('authorUid' in existing()) || incoming().authorUid == existing().authorUid)
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly([
-          'heroHeadline', 'announcementBanner', 'openingHours', 'updatedAt'
+          'heroHeadline', 'announcementBanner', 'openingHours', 'managerPin', 'updatedAt'
         ]);
       allow delete: if isAdmin() && isValidId(settingId);
     }

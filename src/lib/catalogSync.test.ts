@@ -56,7 +56,7 @@ test('sanitizeCustomProductPayload enforces blueprint volumetric bounds and vali
       aisleLocation: 'Bay C1',
       highlights: [],
     },
-    'uid-123'
+    '2014'
   );
 
   assert.match(sanitized.id, BLUEPRINT_LIMITS.idPattern);
@@ -65,14 +65,17 @@ test('sanitizeCustomProductPayload enforces blueprint volumetric bounds and vali
   assert.equal(sanitized.variants.length, BLUEPRINT_LIMITS.variantsMaxItems);
   assert.equal(sanitized.description.length, BLUEPRINT_LIMITS.descriptionMaxLength);
   assert.equal(sanitized.highlights.length, 1);
+  assert.equal(sanitized.deleted, false);
+  assert.match(sanitized.managerPin, BLUEPRINT_LIMITS.managerPinPattern);
 });
 
 test('sanitizeProductOverridePayload and sanitizeSiteSettingsPayload enforce defaults and bounds', () => {
-  const ov = sanitizeProductOverridePayload('prod-1', { price: 199, mrp: 150 }, false, 'uid-admin');
+  const ov = sanitizeProductOverridePayload('prod-1', { price: 199, mrp: 150 }, false, '2014');
   assert.equal(ov.productId, 'prod-1');
   assert.equal(ov.inStock, false);
   assert.equal(ov.price, 199);
   assert.equal(ov.mrp, 199);
+  assert.equal(ov.managerPin, '2014');
 
   const settings = sanitizeSiteSettingsPayload(
     {
@@ -80,10 +83,11 @@ test('sanitizeProductOverridePayload and sanitizeSiteSettingsPayload enforce def
       announcementBanner: 'Live Banner',
       openingHours: '9 AM - 9 PM',
     },
-    'uid-admin'
+    '2014'
   );
   assert.ok(settings.heroHeadline.length > 0);
   assert.equal(settings.announcementBanner, 'Live Banner');
+  assert.equal(settings.managerPin, '2014');
 
   assert.equal(countPendingChanges(EMPTY_PENDING_PUBLISH), 0);
   assert.equal(

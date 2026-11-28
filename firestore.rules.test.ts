@@ -8,8 +8,7 @@ const blueprint = JSON.parse(fs.readFileSync(new URL('./firebase-blueprint.json'
 test('firestore.rules enforces Eight Pillars baseline primitives', () => {
   assert.match(rulesText, /rules_version\s*=\s*'2'/);
   assert.match(rulesText, /match \/\{document=\*\*\}\s*\{\s*allow read, write: if false;\s*\}/);
-  assert.match(rulesText, /request\.auth\.token\.email_verified\s*==\s*true/);
-  assert.match(rulesText, /request\.auth\.token\.email\.lower\(\)\s*==\s*'mr\.beast990345@gmail\.com'/);
+  assert.match(rulesText, /function hasValidManagerPin\(data\)/);
   assert.match(rulesText, /function isValidId\(id\)/);
   assert.match(rulesText, /incoming\(\)\.createdAt\s*==\s*request\.time/);
   assert.match(rulesText, /incoming\(\)\.updatedAt\s*==\s*request\.time/);
@@ -27,15 +26,12 @@ test('every blueprint Firestore collection has a dedicated match block in firest
   }
 });
 
-test('Dirty Dozen security assertions reject shadow updates, PII leaks, and unverified admins', () => {
-  // 1. No blanket signed-in reads on bookings
+test('Dirty Dozen security assertions reject shadow updates, PII leaks, and unverified deletes', () => {
   assert.equal(/match \/bookings\/\{bookingId\}[\s\S]*allow list:\s*if\s*isSignedIn\(\);/.test(rulesText), false);
-  // 2. Strict key allowlists exist for all write entities
   assert.match(rulesText, /isValidCustomProduct/);
   assert.match(rulesText, /isValidProductOverride/);
   assert.match(rulesText, /isValidSiteSettings/);
   assert.match(rulesText, /isValidBooking/);
   assert.match(rulesText, /affectedKeys\(\)\.hasOnly/);
-  // 3. Admins collection disallows self-escalation update
   assert.match(rulesText, /match \/admins\/\{userId\}[\s\S]*allow update: if false;/);
 });

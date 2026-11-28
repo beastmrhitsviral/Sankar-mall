@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import {
-  ADMIN_PIN,
   buildCustomerNotifyWhatsAppUrl,
   formatINR,
 } from '../lib/bookingStore';
@@ -24,14 +23,15 @@ import { ProductImageUploadBox } from '../components/ProductImageUploadBox';
 type AdminTab = 'all' | 'standard' | 'photo-list' | 'add-product';
 
 export function AdminPage() {
-  const { bookings, updateStatus, addProduct, isCloudAdmin } = useStore();
+  const {
+    bookings,
+    updateStatus,
+    addProduct,
+    isStaffUnlocked,
+    unlockStaffWithPin,
+    lockStaff,
+  } = useStore();
 
-  const [unlocked, setUnlocked] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return window.sessionStorage.getItem('shankar_admin_unlocked') === '1';
-    }
-    return false;
-  });
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTab>('all');
@@ -71,19 +71,16 @@ export function AdminPage() {
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin.trim() === ADMIN_PIN) {
-      setUnlocked(true);
+    if (unlockStaffWithPin(pin)) {
       setPinError(null);
-      window.sessionStorage.setItem('shankar_admin_unlocked', '1');
     } else {
       setPinError('Incorrect Staff PIN. Demo PIN is 1234.');
     }
   };
 
   const handleLock = () => {
-    setUnlocked(false);
+    lockStaff();
     setPin('');
-    window.sessionStorage.removeItem('shankar_admin_unlocked');
   };
 
   const handleAddProduct = (e: React.FormEvent) => {
@@ -114,11 +111,7 @@ export function AdminPage() {
       highlights: ['Ready for 2-hour store pickup', 'Pay at Express Counter'],
     });
 
-    setProdSuccess(
-      isCloudAdmin
-        ? `Published "${created.name}" to ${sectionMeta.name} for all visitors.`
-        : `Saved "${created.name}" locally. Sign in with Google above to publish to all visitors.`
-    );
+    setProdSuccess(`Published "${created.name}" to ${sectionMeta.name} for all visitors.`);
     setProdName('');
     setProdBrand('');
     setProdPrice('');
@@ -130,7 +123,7 @@ export function AdminPage() {
     setProdImageFileName('');
   };
 
-  if (!unlocked) {
+  if (!isStaffUnlocked) {
     return (
       <div className="max-w-md mx-auto px-4 py-16 sm:py-24">
         <div className="border border-slate-200 rounded-2xl p-6 sm:p-8 bg-white shadow-sm space-y-5">
@@ -271,7 +264,7 @@ export function AdminPage() {
               Add New Store Product
             </h2>
             <p className="text-xs text-slate-500">
-              Published immediately to the live catalog and category pages.
+              Published immediately to the live catalog and category pages across all phones.
             </p>
           </div>
 
